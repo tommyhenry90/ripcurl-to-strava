@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rip Curl → Strava</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏄%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;600;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-1: #06121b;
+    --bg-2: #103048;
+    --surface: rgba(255,255,255,0.05);
+    --surface-2: rgba(255,255,255,0.09);
+    --surface-3: rgba(255,255,255,0.14);
+    --border: rgba(255,255,255,0.12);
+    --text: #f3f6f9;
+    --text-muted: rgba(243,246,249,0.6);
+    --text-dim: rgba(243,246,249,0.4);
+    --accent: #ff6b3d;
+    --accent-soft: #ffaa7a;
+    --foam: #c5e6ec;
+    --mint: #5eead4;
+    --strava: #fc4c02;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; overscroll-behavior: none; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    color: var(--text);
+    background: radial-gradient(ellipse at top, var(--bg-2) 0%, var(--bg-1) 65%);
+    min-height: 100vh;
+    padding: 28px 16px 80px;
+    letter-spacing: -0.01em;
+    line-height: 1.45;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(circle at 88% 12%, rgba(255,170,122,0.10), transparent 38%),
+      radial-gradient(circle at 8% 78%, rgba(94,234,212,0.06), transparent 50%);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; position: relative; z-index: 1; }
+  header { margin-bottom: 32px; position: relative; }
+  .wave-accent {
+    position: absolute; top: -2px; right: -6px;
+    opacity: 0.2; pointer-events: none;
+  }
+  .eyebrow {
+    color: var(--text-dim); font-size: 12px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 800;
+    font-size: clamp(38px, 9vw, 56px);
+    line-height: 0.95;
+    margin: 0 0 12px;
+    letter-spacing: -0.035em;
+  }
+  h1 em { color: var(--accent); font-style: italic; font-weight: 400; }
+  .subtitle { color: var(--text-muted); font-size: 15px; margin: 0; max-width: 520px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 22px;
+    margin-bottom: 18px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .card h2 {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px; font-weight: 600; margin: 0 0 6px;
+    letter-spacing: -0.02em;
+  }
+  .card p { color: var(--text-muted); font-size: 14px; margin: 0 0 16px; line-height: 1.5; }
+  .card.done { opacity: 0.55; padding: 14px 18px; }
+  .card.done h2 { font-size: 16px; margin: 0; }
+  .card.done p { display: none; }
+  .check { color: var(--mint); margin-right: 6px; }
+
+  button.cta, a.cta {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 22px;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.12s, opacity 0.2s;
+    box-shadow: 0 10px 28px -10px rgba(255,107,61,0.45);
+    letter-spacing: -0.005em;
+    text-decoration: none;
+  }
+  button.cta:hover, a.cta:hover { transform: translateY(-1px); }
+  button.cta:active, a.cta:active { transform: scale(0.97); }
+  button.cta:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  button.cta.strava { background: var(--strava); }
+  button.cta.secondary {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: none;
+  }
+  button.ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  button.ghost:hover { color: var(--text); border-color: var(--surface-3); }
+
+  input[type=email], input[type=password], input[type=text] {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 13px 15px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    margin-bottom: 10px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input::placeholder { color: rgba(243,246,249,0.32); }
+  input:focus {
+    outline: none; border-color: var(--accent);
+    background: var(--surface);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -2px;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .surfs { display: grid; gap: 14px; margin-top: 8px; }
+  .surf {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .surf-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 17px; font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0 0 6px;
+  }
+  .surf-meta {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    letter-spacing: 0.01em;
+  }
+  .surf-meta .dot { color: var(--text-dim); margin: 0 6px; }
+  .surf-status {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--mint);
+    margin-top: 6px;
+  }
+  .surf-status a { color: var(--mint); text-decoration: underline; }
+  .surf-status.error { color: var(--accent-soft); }
+  .surf button {
+    flex: 0 0 auto;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .toolbar h2 {
+    flex: 1;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row > * { flex: 0 0 auto; }
+  .grow { flex: 1 1 auto; min-width: 0; }
+
+  .alert {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255,107,61,0.08);
+    border: 1px solid rgba(255,107,61,0.25);
+    color: var(--accent-soft);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .hidden { display: none !important; }
+
+  footer {
+    margin-top: 50px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  footer a { color: var(--text-muted); text-decoration: underline; }
+
+  @media (max-width: 480px) {
+    .surf { grid-template-columns: 1fr; }
+    .surf button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg class="wave-accent" width="140" height="60" viewBox="0 0 140 60" fill="none">
+      <path d="M0 38 Q 20 18, 40 38 T 80 38 T 120 38 T 160 38" stroke="#ff6b3d" stroke-width="1.5" fill="none"/>
+      <path d="M0 48 Q 20 28, 40 48 T 80 48 T 120 48 T 160 48" stroke="#5eead4" stroke-width="1.5" fill="none" opacity="0.5"/>
+    </svg>
+    <div class="eyebrow">Rip Curl Search GPS → Strava</div>
+    <h1>Send your <em>surfs</em> to Strava.</h1>
+    <p class="subtitle">Connect your accounts, pick a session, upload the GPS track to Strava as a Surfing activity — with the wave count, conditions, and (for URBNSURF) the session type in the description.</p>
+  </header>
+
+  <!-- Step 1: Strava -->
+  <div class="card" id="step-strava">
+    <div class="step-pending">
+      <h2>1. Connect Strava</h2>
+      <p>You'll be sent to Strava to authorize this app. We only ask for permission to read your activities and create new ones.</p>
+      <button class="cta strava" id="btnStrava">Connect with Strava</button>
+    </div>
+    <div class="step-done hidden">
+      <h2><span class="check">✓</span>Strava connected<span id="stravaWho"></span></h2>
+    </div>
+  </div>
+
+  <!-- Step 2: Rip Curl -->
+  <div class="card hidden" id="step-ripcurl">
+    <div class="step-pending">
+      <h2>2. Sign in to Rip Curl</h2>
+      <p>Use your Rip Curl Search GPS login. Email and password are stored in this browser's localStorage (only on this device) and re-sent to Rip Curl each session to fetch a fresh token. Use the Sign out button to clear them.</p>
+      <form id="ripcurlForm">
+        <input type="email" id="rcEmail" placeholder="your@email.com" autocomplete="email" required>
+        <input type="password" id="rcPassword" placeholder="Password" autocomplete="current-password" required>
+        <button class="cta" type="submit" id="btnRipcurl">Sign in</button>
+      </form>
+      <div class="alert hidden" id="ripcurlError"></div>
+    </div>
+    <div class="step-done hidden">
+      <h2><span class="check">✓</span>Rip Curl signed in<span id="ripcurlWho"></span></h2>
+    </div>
+  </div>
+
+  <!-- Step 3: Surfs -->
+  <div class="card hidden" id="step-surfs">
+    <div class="toolbar">
+      <h2>Your surfs</h2>
+      <button class="ghost" id="btnRefresh">Refresh</button>
+      <button class="ghost" id="btnUploadAll">Upload all new</button>
+      <button class="ghost" id="btnSignOut">Sign out</button>
+    </div>
+    <div id="surfs" class="surfs"></div>
+  </div>
+
+  <footer>
+    Built for personal use · Credentials live in your browser, nothing stored server-side ·
+    <a href="https://github.com/" target="_blank" rel="noopener">source</a>
+  </footer>
+</div>
+
+<script>
+'use strict';
+
+// ---------- storage ----------
+const LS = {
+  get: (k, d = null) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+  del: (k) => localStorage.removeItem(k),
+};
+
+const STATE = {
+  stravaClientId: null,
+  stravaTokens: LS.get('strava_tokens'),  // { access_token, refresh_token, expires_at, athlete }
+  ripcurlCreds: LS.get('ripcurl_creds'),  // { email, password }
+  ripcurlUser: LS.get('ripcurl_user'),    // { id, first_name, email } - cached display info
+  ripcurlCookie: null,                    // in-memory only, refreshed per session
+  uploadedSurfs: LS.get('uploaded_surfs', {}),  // { surf_id: { activity_id, name } }
+  poolTemps: null,
+};
+
+// ---------- config ----------
+async function loadConfig() {
+  const r = await fetch('/api/config');
+  const data = await r.json();
+  STATE.stravaClientId = data.strava_client_id;
+}
+
+// ---------- strava ----------
+function stravaAuthorizeUrl() {
+  const params = new URLSearchParams({
+    client_id: STATE.stravaClientId,
+    response_type: 'code',
+    redirect_uri: window.location.origin + '/',
+    approval_prompt: 'auto',
+    scope: 'activity:write,activity:read',
+  });
+  return `https://www.strava.com/oauth/authorize?${params}`;
+}
+
+async function stravaExchangeCode(code) {
+  const r = await fetch('/api/strava/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!r.ok) throw new Error('Strava token exchange failed: ' + await r.text());
+  const data = await r.json();
+  STATE.stravaTokens = data;
+  LS.set('strava_tokens', data);
+}
+
+async function stravaAccessToken() {
+  const t = STATE.stravaTokens;
+  if (!t) throw new Error('Not authenticated with Strava');
+  if (t.expires_at && t.expires_at * 1000 > Date.now() + 60_000) return t.access_token;
+  // Refresh
+  const r = await fetch('/api/strava/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: t.refresh_token }),
+  });
+  if (!r.ok) throw new Error('Strava refresh failed');
+  const data = await r.json();
+  STATE.stravaTokens = { ...t, ...data };
+  LS.set('strava_tokens', STATE.stravaTokens);
+  return data.access_token;
+}
+
+// ---------- rip curl ----------
+async function ripcurlLogin() {
+  const creds = STATE.ripcurlCreds;
+  if (!creds) throw new Error('Not signed in to Rip Curl');
+  const r = await fetch('/api/ripcurl/v1/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: creds.email, password: creds.password, version: 1 }),
+  });
+  if (!r.ok) {
+    const text = await r.text();
+    throw new Error(text || `Rip Curl login failed (${r.status})`);
+  }
+  const cookie = r.headers.get('X-RC-Cookie');
+  if (!cookie) throw new Error('Rip Curl login returned no cookie');
+  STATE.ripcurlCookie = cookie;
+  const data = await r.json();
+  STATE.ripcurlUser = { id: data.id, first_name: data.first_name, email: data.email };
+  LS.set('ripcurl_user', STATE.ripcurlUser);
+  return data;
+}
+
+async function rcFetch(path) {
+  // Lazy-login: if no cookie in memory, fetch one using stored creds.
+  if (!STATE.ripcurlCookie) await ripcurlLogin();
+  let r = await fetch(`/api/ripcurl${path}`, { headers: { 'X-RC-Cookie': STATE.ripcurlCookie } });
+  if (r.status === 401) {
+    // Cookie likely stale — re-login once and retry.
+    await ripcurlLogin();
+    r = await fetch(`/api/ripcurl${path}`, { headers: { 'X-RC-Cookie': STATE.ripcurlCookie } });
+  }
+  return r;
+}
+
+async function ripcurlFeed(limit = 20) {
+  const r = await rcFetch(`/v1/feeds/?limit=${limit}&user=true&sort=date&filter=my-surfs`);
+  if (!r.ok) throw new Error(`feed failed (${r.status})`);
+  return r.json();
+}
+
+async function ripcurlSurf(id) {
+  const r = await rcFetch(`/v1/surfs/${id}`);
+  if (!r.ok) throw new Error(`surf fetch failed (${r.status})`);
+  return r.json();
+}
+
+// ---------- urbnsurf ----------
+async function urbnsurfSessions(park, dateStr) {
+  const r = await fetch(`/api/urbnsurf/availability?location=${park}&from_date=${dateStr}&to_date=${dateStr}&page=1&limit=300`);
+  if (!r.ok) return [];
+  const data = await r.json();
+  return data?.data || [];
+}
+
+async function poolTemps() {
+  if (STATE.poolTemps) return STATE.poolTemps;
+  try {
+    const r = await fetch('/api/urbnsurf/temp');
+    STATE.poolTemps = await r.json();
+  } catch { STATE.poolTemps = { sydney: null, melbourne: null }; }
+  return STATE.poolTemps;
+}
+
+async function urbnsurfSessionName(surf) {
+  const loc = (surf.location || '').toUpperCase();
+  if (!loc.includes('URBNSURF')) return null;
+  const park = loc.includes('SYDNEY') ? 'sydney' : loc.includes('MELBOURNE') ? 'melbourne' : null;
+  if (!park) return null;
+
+  const offset = +(surf.utc_offset || 0);
+  const startUtc = new Date(surf.start_datetime.replace(' ', 'T').replace(' +', '+'));
+  const local = new Date(startUtc.getTime() + offset * 3600_000);
+  const dateStr = local.toISOString().slice(0, 10);
+  const surfDurSec = surf.duration_total || 3600;
+  const startMin = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const endMin = startMin + Math.floor(surfDurSec / 60);
+
+  const sessions = await urbnsurfSessions(park, dateStr);
+  const skipTypes = new Set(['spectator-pass', 'surf-buddy']);
+  const skipWords = ['Beginner', 'Surf in the Bays', 'Spectator'];
+  let bestTitle = null, bestOverlap = 0;
+  for (const s of sessions) {
+    if (skipTypes.has(s.session_type)) continue;
+    if (skipWords.some(w => (s.title || '').includes(w))) continue;
+    const dur = s.duration || 0;
+    if (dur < 30 || dur > 80) continue;
+    const [h, m] = (s.time || '').split(':').map(Number);
+    if (Number.isNaN(h)) continue;
+    const sStart = h * 60 + m;
+    const sEnd = sStart + dur;
+    const overlap = Math.max(0, Math.min(sEnd, endMin) - Math.max(sStart, startMin));
+    if (overlap > bestOverlap) { bestOverlap = overlap; bestTitle = s.title; }
+  }
+  return bestOverlap >= 10 ? bestTitle : null;
+}
+
+// ---------- copy ----------
+function surfTitle(surf, session) {
+  const spot = (surf.location || 'Surf').split(',')[0].trim() || 'Surf';
+  return session ? `${spot} - ${session}` : spot;
+}
+
+const WIND_WORDS = ['calm', 'light', 'moderate', 'strong', 'very strong', 'gale'];
+
+function conditionsLine(surf) {
+  const bits = [];
+  const swell = surf.swell_size || surf.swell_max;
+  const period = surf.swell_period;
+  const swellDir = surf.swell_direction;
+  const human = (surf.human_relation || '').trim();
+  if (human) bits.push(human);
+  else if (swell) {
+    let s = swell.toFixed(1) + 'm';
+    if (swellDir) s += ' ' + swellDir;
+    if (period) s += ' @ ' + period + 's';
+    bits.push(s + ' swell');
+  }
+  if (surf.wind_strength && surf.wind_direction) {
+    const w = WIND_WORDS[Math.min(+surf.wind_strength, WIND_WORDS.length - 1)];
+    bits.push(`${w} ${surf.wind_direction} wind`);
+  }
+  if (surf.tide_level && surf.tide_direction) {
+    bits.push(`${surf.tide_level.toLowerCase()} tide ${surf.tide_direction.toLowerCase()}`);
+  }
+  if (surf.water_temp) bits.push(`${surf.water_temp}°C water`);
+  if (bits.length < 2) return null;
+  return bits.map(b => b[0]?.toUpperCase() === b[0] ? b : (b[0] || '').toUpperCase() + b.slice(1)).join(' · ');
+}
+
+async function surfDescription(surf, session, temp) {
+  const waves = surf.wave_count || 0;
+  const waveWord = waves === 1 ? 'Wave' : 'Waves';
+  const durMin = Math.round((surf.duration_total || 0) / 60);
+  const leadBits = [`${durMin} minutes`, `${waves} ${waveWord}`];
+  let context = null;
+  if (session) {
+    if (temp) leadBits.push(`${temp}°C water`);
+  } else {
+    context = conditionsLine(surf);
+  }
+  const lead = leadBits.join(' · ') + '.';
+
+  const stats = [];
+  const longest = Math.round(surf.longest_wave_by_distance || 0);
+  if (longest) stats.push(`Longest wave ${longest}m`);
+  const speed = surf.speed_max;
+  if (speed) stats.push(`Top speed ${speed.toFixed(1)} km/h`);
+  const dw = (surf.distance_waves || 0) / 1000;
+  if (dw) stats.push(`${dw.toFixed(2)}km Riding`);
+  const dp = (surf.distance_paddles || 0) / 1000;
+  if (dp) stats.push(`${dp.toFixed(2)}km Paddling`);
+  const statsLine = stats.length ? stats.join(' · ') + '.' : '';
+
+  return [lead, context, statsLine].filter(Boolean).join('\n');
+}
+
+// ---------- gpx ----------
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function gpxFromSurf(surf, name) {
+  const raw = JSON.parse(surf.raw_data);
+  const offsetMs = +(surf.utc_offset || 0) * 3600_000;
+  const xml = [];
+  xml.push('<?xml version="1.0" encoding="UTF-8"?>');
+  xml.push('<gpx version="1.1" creator="ripcurl-to-strava-web" xmlns="http://www.topografix.com/GPX/1/1">');
+  const firstUtc = new Date(raw[0].time.replace(' ', 'T') + 'Z').getTime() - offsetMs;
+  xml.push(`<metadata><time>${toIso(firstUtc)}</time></metadata>`);
+  xml.push(`<trk><name>${escapeXml(name)}</name><trkseg>`);
+  for (const p of raw) {
+    const utcMs = new Date(p.time.replace(' ', 'T') + 'Z').getTime() - offsetMs;
+    xml.push(`<trkpt lat="${p.latitude}" lon="${p.longitude}"><time>${toIso(utcMs)}</time></trkpt>`);
+  }
+  xml.push('</trkseg></trk></gpx>');
+  return xml.join('');
+}
+function toIso(ms) {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}Z`;
+}
+function escapeXml(s) {
+  return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+}
+
+// ---------- upload ----------
+async function uploadSurf(surfId, onProgress) {
+  onProgress('Fetching surf data…');
+  const surf = await ripcurlSurf(surfId);
+  const session = await urbnsurfSessionName(surf).catch(() => null);
+  const temps = await poolTemps();
+  const park = (surf.location || '').toUpperCase().includes('SYDNEY') ? 'sydney' : 'melbourne';
+  const temp = session ? temps[park] : null;
+
+  const title = surfTitle(surf, session);
+  const description = await surfDescription(surf, session, temp);
+  const gpx = gpxFromSurf(surf, title);
+
+  onProgress('Uploading to Strava…');
+  const token = await stravaAccessToken();
+  const form = new FormData();
+  form.append('name', title);
+  form.append('description', description);
+  form.append('data_type', 'gpx');
+  form.append('sport_type', 'Surfing');
+  form.append('external_id', `ripcurl-${surfId}`);
+  form.append('file', new Blob([gpx], { type: 'application/gpx+xml' }), `${surfId}.gpx`);
+
+  const upRes = await fetch('https://www.strava.com/api/v3/uploads', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const upData = await upRes.json();
+  const upDup = parseDuplicate(upData.error);
+  if (upDup) return { activity_id: upDup, name: title, was_duplicate: true };
+  if (upData.error) throw new Error(stripHtml(upData.error));
+  const uploadId = upData.id;
+
+  onProgress('Processing on Strava…');
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 2000));
+    const sRes = await fetch(`https://www.strava.com/api/v3/uploads/${uploadId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const sData = await sRes.json();
+    if (sData.activity_id) {
+      return { activity_id: sData.activity_id, name: title };
+    }
+    const sDup = parseDuplicate(sData.error);
+    if (sDup) return { activity_id: sDup, name: title, was_duplicate: true };
+    if (sData.error) throw new Error(stripHtml(sData.error));
+  }
+  throw new Error('Timed out waiting for Strava');
+}
+
+function parseDuplicate(msg) {
+  if (!msg) return null;
+  const m = msg.match(/\/activities\/(\d+)/);
+  return m && /duplicate/i.test(msg) ? +m[1] : null;
+}
+
+function stripHtml(s) {
+  return String(s || '').replace(/<[^>]+>/g, '').trim();
+}
+
+// ---------- UI ----------
+const $ = (sel) => document.querySelector(sel);
+
+function setStep(cardSel, done, whoSel, whoText) {
+  const card = document.querySelector(cardSel);
+  card.classList.toggle('done', done);
+  card.querySelector('.step-pending').classList.toggle('hidden', done);
+  card.querySelector('.step-done').classList.toggle('hidden', !done);
+  if (done && whoSel) {
+    const el = document.querySelector(whoSel);
+    if (el) el.textContent = whoText ? ' — ' + whoText : '';
+  }
+}
+
+function render() {
+  const haveStrava = !!STATE.stravaTokens;
+  const haveRipcurl = !!STATE.ripcurlCreds;
+
+  const a = STATE.stravaTokens?.athlete;
+  setStep('#step-strava', haveStrava, '#stravaWho', a ? `${a.firstname} ${a.lastname}` : '');
+
+  if (!haveStrava) {
+    $('#step-ripcurl').classList.add('hidden');
+    $('#step-surfs').classList.add('hidden');
+    return;
+  }
+  $('#step-ripcurl').classList.remove('hidden');
+
+  const u = STATE.ripcurlUser;
+  setStep('#step-ripcurl', haveRipcurl, '#ripcurlWho', u ? (u.first_name || u.email) : '');
+
+  if (!haveRipcurl) {
+    $('#step-surfs').classList.add('hidden');
+    return;
+  }
+  $('#step-surfs').classList.remove('hidden');
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatLocal(surf) {
+  const offsetMs = +(surf.utc_offset || 0) * 3600_000;
+  const utcMs = new Date(surf.start_datetime.replace(' ', 'T').replace(' +', '+')).getTime();
+  const d = new Date(utcMs + offsetMs);
+  const day = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const time = `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+  return `${day}, ${time}`;
+}
+
+async function renderSurfs() {
+  const grid = $('#surfs');
+  grid.innerHTML = '<div class="empty"><span class="spinner"></span>Loading your surfs…</div>';
+  let surfs;
+  try {
+    surfs = await ripcurlFeed(20);
+  } catch (e) {
+    grid.innerHTML = `<div class="alert">Couldn't load surfs: ${escapeHtml(e.message)}<br><button class="ghost" onclick="signOutRipcurl()" style="margin-top:8px">Sign out and try again</button></div>`;
+    return;
+  }
+  if (!surfs.length) {
+    grid.innerHTML = '<div class="empty">No surfs yet. Sync your watch with the Rip Curl app and refresh.</div>';
+    return;
+  }
+  grid.innerHTML = '';
+  for (const s of surfs) {
+    const card = document.createElement('div');
+    card.className = 'surf';
+    card.dataset.id = s.id;
+    const spot = (s.location || 'Surf').split(',')[0].trim() || 'Surf';
+    const already = STATE.uploadedSurfs[s.id];
+    card.innerHTML = `
+      <div class="grow">
+        <div class="surf-title">${escapeHtml(spot)}</div>
+        <div class="surf-meta">${formatLocal(s)} <span class="dot">·</span> ${s.wave_count} waves <span class="dot">·</span> ${Math.round((s.distance_total || 0)/1000 * 100)/100}km total</div>
+        <div class="surf-status ${already ? '' : 'hidden'}">${already ? `✓ Uploaded · <a href="https://www.strava.com/activities/${already.activity_id}" target="_blank" rel="noopener">view on Strava</a>` : ''}</div>
+      </div>
+      <button class="cta ${already ? 'secondary' : ''}" data-action="upload">${already ? 'Re-upload' : 'Upload'}</button>
+    `;
+    card.querySelector('[data-action=upload]').addEventListener('click', () => handleUploadClick(s.id, card));
+    grid.appendChild(card);
+  }
+}
+
+async function handleUploadClick(surfId, card) {
+  const btn = card.querySelector('button');
+  const status = card.querySelector('.surf-status');
+  btn.disabled = true;
+  status.classList.remove('hidden', 'error');
+  status.textContent = '';
+  const setStatus = (msg) => { status.innerHTML = `<span class="spinner"></span>${escapeHtml(msg)}`; };
+  try {
+    const result = await uploadSurf(surfId, setStatus);
+    STATE.uploadedSurfs[surfId] = { activity_id: result.activity_id, name: result.name };
+    LS.set('uploaded_surfs', STATE.uploadedSurfs);
+    const verb = result.was_duplicate ? 'Already on Strava' : 'Uploaded';
+    status.innerHTML = `✓ ${verb} · <a href="https://www.strava.com/activities/${result.activity_id}" target="_blank" rel="noopener">view activity</a>`;
+    btn.textContent = 'Re-upload';
+    btn.classList.add('secondary');
+  } catch (e) {
+    status.classList.add('error');
+    status.textContent = `× ${e.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function uploadAllNew() {
+  const surfs = document.querySelectorAll('.surf');
+  for (const card of surfs) {
+    const surfId = card.dataset.id;
+    if (STATE.uploadedSurfs[surfId]) continue;
+    await handleUploadClick(surfId, card);
+  }
+}
+
+function signOutRipcurl() {
+  LS.del('ripcurl_creds');
+  LS.del('ripcurl_user');
+  STATE.ripcurlCreds = null;
+  STATE.ripcurlCookie = null;
+  STATE.ripcurlUser = null;
+  location.reload();
+}
+
+function signOutAll() {
+  if (!confirm('Sign out and clear all credentials from this browser?')) return;
+  LS.del('strava_tokens');
+  LS.del('ripcurl_creds');
+  LS.del('ripcurl_user');
+  LS.del('uploaded_surfs');
+  location.reload();
+}
+
+// ---------- init ----------
+(async () => {
+  await loadConfig();
+  if (!STATE.stravaClientId) {
+    document.querySelector('.wrap').innerHTML = '<div class="alert">This Worker has no STRAVA_CLIENT_ID configured. See README.</div>';
+    return;
+  }
+
+  // Strava OAuth callback
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if (code) {
+    try {
+      await stravaExchangeCode(code);
+      history.replaceState({}, '', location.pathname);
+    } catch (e) {
+      alert('Strava auth failed: ' + e.message);
+    }
+  }
+
+  render();
+  if (STATE.stravaTokens && STATE.ripcurlCreds) renderSurfs();
+
+  // Buttons
+  $('#btnStrava').addEventListener('click', () => {
+    location.href = stravaAuthorizeUrl();
+  });
+  $('#ripcurlForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const errBox = $('#ripcurlError');
+    errBox.classList.add('hidden');
+    const btn = $('#btnRipcurl');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Signing in…';
+    const email = $('#rcEmail').value.trim();
+    const password = $('#rcPassword').value;
+    // Stash creds first so ripcurlLogin() can use them, but only persist after a successful login.
+    STATE.ripcurlCreds = { email, password };
+    try {
+      await ripcurlLogin();
+      LS.set('ripcurl_creds', STATE.ripcurlCreds);
+      $('#rcPassword').value = '';
+      render();
+      renderSurfs();
+    } catch (e) {
+      STATE.ripcurlCreds = null;
+      STATE.ripcurlCookie = null;
+      errBox.textContent = e.message;
+      errBox.classList.remove('hidden');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  });
+  $('#btnRefresh').addEventListener('click', renderSurfs);
+  $('#btnUploadAll').addEventListener('click', uploadAllNew);
+  $('#btnSignOut').addEventListener('click', signOutAll);
+})();
+</script>
+</body>
+</html>

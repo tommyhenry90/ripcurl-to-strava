@@ -1,0 +1,10 @@
+.env
+.uploaded.json
+__pycache__/
+*.pyc
+
+# Cloudflare Worker
+web/.dev.vars
+web/.wrangler/
+web/node_modules/
+web/preview-*.png

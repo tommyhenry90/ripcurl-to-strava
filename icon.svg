@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#0e3a5c"/>
+      <stop offset="55%"  stop-color="#0d6477"/>
+      <stop offset="100%" stop-color="#0fa3a1"/>
+    </linearGradient>
+    <linearGradient id="foam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#c5e6ec"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+
+  <!-- Background tile (Strava will round corners visually) -->
+  <rect width="512" height="512" rx="112" fill="url(#sea)"/>
+
+  <!-- Soft horizon glow -->
+  <ellipse cx="380" cy="120" rx="180" ry="70" fill="#ffaa7a" opacity="0.18" filter="url(#soft)"/>
+
+  <!-- Background swell silhouette (lower contrast, depth) -->
+  <path d="M -20 360
+           C 90 320, 170 340, 240 360
+           C 320 384, 420 360, 540 332
+           L 540 540 L -20 540 Z"
+        fill="#0a2740" opacity="0.55"/>
+
+  <!-- Hero wave: a clean right-handed curl -->
+  <!-- Lip arching over, with a hollow underneath -->
+  <path d="M 60 380
+           C 110 280, 200 200, 320 196
+           C 400 194, 460 226, 478 270
+           C 462 240, 414 222, 360 232
+           C 290 246, 232 290, 196 360
+           C 176 396, 162 416, 138 416
+           C 100 416, 70 402, 60 380 Z"
+        fill="url(#foam)"/>
+
+  <!-- Inside-the-barrel shadow to suggest depth -->
+  <path d="M 130 384
+           C 160 340, 220 290, 300 274
+           C 348 264, 388 270, 410 286
+           C 380 280, 332 286, 286 318
+           C 240 350, 210 392, 180 408
+           C 158 416, 138 410, 130 384 Z"
+        fill="#0a2740" opacity="0.35"/>
+
+  <!-- GPS track: a dashed line tracing across the wave face -->
+  <path d="M 76 412
+           C 140 392, 200 360, 256 320
+           C 312 282, 372 252, 446 248"
+        fill="none"
+        stroke="#ff6b3d"
+        stroke-width="10"
+        stroke-linecap="round"
+        stroke-dasharray="2 18"/>
+
+  <!-- Track endpoint pin -->
+  <circle cx="446" cy="248" r="16" fill="#ff6b3d"/>
+  <circle cx="446" cy="248" r="6"  fill="#ffffff"/>
+</svg>
