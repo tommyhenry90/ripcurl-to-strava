@@ -7,272 +7,318 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏄%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;600;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- PicoCSS v2 (classless) — drop-in baseline -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 <style>
+  /* Pico color overrides — warmer dark theme, Strava-orange primary */
   :root {
-    --bg-1: #06121b;
-    --bg-2: #103048;
-    --surface: rgba(255,255,255,0.05);
-    --surface-2: rgba(255,255,255,0.09);
-    --surface-3: rgba(255,255,255,0.14);
-    --border: rgba(255,255,255,0.12);
-    --text: #f3f6f9;
-    --text-muted: rgba(243,246,249,0.6);
-    --text-dim: rgba(243,246,249,0.4);
-    --accent: #ff6b3d;
-    --accent-soft: #ffaa7a;
-    --foam: #c5e6ec;
-    --mint: #5eead4;
-    --strava: #fc4c02;
+    --pico-font-family-sans-serif: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --pico-font-family-monospace: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --pico-border-radius: 0.5rem;
   }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; overscroll-behavior: none; }
+  [data-theme="dark"], :root:not([data-theme="light"]) {
+    --pico-background-color: #0d1620;
+    --pico-color: #e6ecf2;
+    --pico-muted-color: #97a4b1;
+    --pico-muted-border-color: #1e2a36;
+    --pico-card-background-color: #131f2b;
+    --pico-card-border-color: #1f2c39;
+    --pico-card-sectioning-background-color: #182532;
+    --pico-form-element-background-color: #0f1a25;
+    --pico-form-element-border-color: #2a3a4a;
+    --pico-form-element-focus-color: #fc6b35;
+    --pico-form-element-active-border-color: #fc6b35;
+    --pico-primary: #fc6b35;
+    --pico-primary-background: #fc6b35;
+    --pico-primary-border: #fc6b35;
+    --pico-primary-underline: #fc6b35;
+    --pico-primary-hover: #fd8053;
+    --pico-primary-hover-background: #fd8053;
+    --pico-primary-hover-border: #fd8053;
+    --pico-primary-focus: rgba(252, 107, 53, 0.25);
+    --pico-primary-inverse: #ffffff;
+    --pico-secondary: #97a4b1;
+    --pico-secondary-background: #2a3a4a;
+    --pico-secondary-border: #2a3a4a;
+    --pico-secondary-hover: #b6c0cc;
+    --pico-secondary-hover-background: #324657;
+    --pico-secondary-hover-border: #324657;
+    --pico-h1-color: #f4f7fb;
+    --pico-h2-color: #eef2f6;
+    --pico-h3-color: #e6ecf2;
+    --pico-mark-background-color: rgba(252, 107, 53, 0.18);
+    --pico-mark-color: #ffd2bf;
+  }
+
+  /* ============ Custom touches on top of Pico ============ */
   body {
-    font-family: 'DM Sans', system-ui, sans-serif;
-    color: var(--text);
-    background: radial-gradient(ellipse at top, var(--bg-2) 0%, var(--bg-1) 65%);
-    min-height: 100vh;
-    padding: 28px 16px 80px;
-    letter-spacing: -0.01em;
-    line-height: 1.45;
-  }
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
     background:
-      radial-gradient(circle at 88% 12%, rgba(255,170,122,0.10), transparent 38%),
-      radial-gradient(circle at 8% 78%, rgba(94,234,212,0.06), transparent 50%);
-    pointer-events: none; z-index: 0;
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(252,107,53,0.10), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(94,234,212,0.05), transparent 60%),
+      var(--pico-background-color);
+    background-attachment: fixed;
   }
-  .wrap { max-width: 760px; margin: 0 auto; position: relative; z-index: 1; }
-  header { margin-bottom: 32px; position: relative; }
-  .wave-accent {
-    position: absolute; top: -2px; right: -6px;
-    opacity: 0.2; pointer-events: none;
-  }
-  .eyebrow {
-    color: var(--text-dim); font-size: 12px;
-    letter-spacing: 0.18em; text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  h1 {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-weight: 800;
-    font-size: clamp(38px, 9vw, 56px);
-    line-height: 0.95;
-    margin: 0 0 12px;
-    letter-spacing: -0.035em;
-  }
-  h1 em { color: var(--accent); font-style: italic; font-weight: 400; }
-  .subtitle { color: var(--text-muted); font-size: 15px; margin: 0; max-width: 520px; }
+  main.container { max-width: 760px; padding-block: 2.5rem 5rem; }
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 22px;
-    margin-bottom: 18px;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+  /* Hero */
+  .hero h1 {
+    font-weight: 700;
+    font-size: clamp(2.2rem, 5vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    margin-bottom: 0.5rem;
   }
-  .card h2 {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 22px; font-weight: 600; margin: 0 0 6px;
-    letter-spacing: -0.02em;
+  .hero h1 em {
+    color: var(--pico-primary);
+    font-style: italic;
+    font-weight: 500;
   }
-  .card p { color: var(--text-muted); font-size: 14px; margin: 0 0 16px; line-height: 1.5; }
-  .card.done { opacity: 0.55; padding: 14px 18px; }
-  .card.done h2 { font-size: 16px; margin: 0; }
-  .card.done p { display: none; }
-  .check { color: var(--mint); margin-right: 6px; }
-
-  button.cta, a.cta {
-    display: inline-block;
-    background: var(--accent);
-    color: white;
-    border: 0;
-    border-radius: 12px;
-    padding: 13px 22px;
-    font-family: inherit;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: transform 0.12s, opacity 0.2s;
-    box-shadow: 0 10px 28px -10px rgba(255,107,61,0.45);
-    letter-spacing: -0.005em;
-    text-decoration: none;
-  }
-  button.cta:hover, a.cta:hover { transform: translateY(-1px); }
-  button.cta:active, a.cta:active { transform: scale(0.97); }
-  button.cta:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-  button.cta.strava { background: var(--strava); }
-  button.cta.secondary {
-    background: var(--surface-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    box-shadow: none;
-  }
-  button.ghost {
-    background: transparent;
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-family: inherit;
-    font-size: 13px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  button.ghost:hover { color: var(--text); border-color: var(--surface-3); }
-
-  input[type=email], input[type=password], input[type=text] {
-    width: 100%;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 13px 15px;
-    border-radius: 12px;
-    font-family: inherit;
-    font-size: 14px;
-    margin-bottom: 10px;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  input::placeholder { color: rgba(243,246,249,0.32); }
-  input:focus {
-    outline: none; border-color: var(--accent);
-    background: var(--surface);
-  }
-
-  .spinner {
-    display: inline-block;
-    width: 13px; height: 13px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: white;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: -2px;
-    margin-right: 8px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .surfs { display: grid; gap: 14px; margin-top: 8px; }
-  .surf {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 18px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
-    align-items: center;
-  }
-  .surf-title {
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 17px; font-weight: 600;
-    letter-spacing: -0.015em;
-    margin: 0 0 6px;
-  }
-  .surf-meta {
-    font-size: 12.5px;
-    color: var(--text-muted);
-    letter-spacing: 0.01em;
-  }
-  .surf-meta .dot { color: var(--text-dim); margin: 0 6px; }
-  .surf-status {
-    font-size: 11.5px;
+  .hero .eyebrow {
+    display: inline-flex; align-items: center; gap: 0.55rem;
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.75rem;
+    color: var(--pico-muted-color);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: var(--mint);
-    margin-top: 6px;
+    letter-spacing: 0.16em;
+    margin-bottom: 1rem;
   }
-  .surf-status a { color: var(--mint); text-decoration: underline; }
-  .surf-status.error { color: var(--accent-soft); }
-  .surf button {
-    flex: 0 0 auto;
+  .hero .eyebrow .badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-color);
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
   }
+  .hero .eyebrow .badge::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--pico-primary);
+  }
+  .hero .subtitle { color: var(--pico-muted-color); max-width: 56ch; margin-bottom: 0; }
 
+  /* Step articles */
+  article.step { margin-block: 1rem; }
+  article.step.done {
+    background: transparent;
+    border: 1px solid var(--pico-muted-border-color);
+    box-shadow: none;
+    padding-block: 0.85rem;
+    color: var(--pico-muted-color);
+  }
+  article.step.done h2 {
+    font-size: 1rem; font-weight: 500;
+    margin-bottom: 0;
+    color: var(--pico-muted-color);
+  }
+  article.step.done h2 #stravaWho,
+  article.step.done h2 #ripcurlWho {
+    color: var(--pico-color);
+  }
+  article.step.done .step-pending,
+  article.step.done p:not(.subtitle):not(#syncStatus) { display: none; }
+  article.step h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.4rem;
+    letter-spacing: -0.012em;
+  }
+  article.step > .step-pending > p,
+  article.step > .sync-disabled > p { color: var(--pico-muted-color); margin-bottom: 1rem; }
+  .check { color: #2dd4bf; margin-right: 0.4rem; font-weight: 700; }
+
+  /* Buttons — Pico handles most, just keep selectors JS uses */
+  .cta { /* Pico .button (any <button>) is already primary */ }
+  .cta.strava { /* Use Pico primary, which is already Strava-orange */ }
+  .cta.secondary {
+    --pico-background-color: var(--pico-secondary-background);
+    --pico-border-color: var(--pico-secondary-border);
+    --pico-color: var(--pico-color);
+  }
+  button.ghost, .ghost {
+    background: transparent;
+    border: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+    padding: 0.4rem 0.75rem;
+    font-size: 0.825rem;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    font-family: inherit;
+    line-height: 1.2;
+    margin: 0;
+  }
+  button.ghost:hover { color: var(--pico-color); border-color: var(--pico-primary); }
+
+  /* Form */
+  #ripcurlForm {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  #ripcurlForm input { margin: 0; }
+  #ripcurlForm button { margin-top: 0.25rem; width: max-content; }
+
+  /* Surf list */
   .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
+    display: flex; align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    flex-wrap: wrap;
   }
   .toolbar h2 {
-    flex: 1;
-    font-family: 'Bricolage Grotesque', sans-serif;
-    font-size: 22px;
-    font-weight: 600;
+    flex: 1; min-width: 0;
     margin: 0;
-    letter-spacing: -0.02em;
+    font-size: 1.25rem;
+    letter-spacing: -0.012em;
+  }
+  .surfs { display: grid; gap: 0.6rem; }
+  .surf {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem 1rem;
+    align-items: center;
+    padding: 0.85rem 1rem;
+    background: var(--pico-card-background-color);
+    border: 1px solid var(--pico-card-border-color);
+    border-radius: var(--pico-border-radius);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .surf:hover { border-color: var(--pico-muted-border-color); }
+  .surf .grow { min-width: 0; }
+  .surf-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--pico-color);
+    margin: 0 0 0.15rem;
+    line-height: 1.25;
+  }
+  .surf-meta {
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.78rem;
+    color: var(--pico-muted-color);
+  }
+  .surf-meta .dot { color: var(--pico-muted-border-color); margin: 0 0.35rem; }
+  .surf-status {
+    font-size: 0.78rem;
+    color: #2dd4bf;
+    margin-top: 0.35rem;
+  }
+  .surf-status a { color: #2dd4bf; }
+  .surf-status a:hover { color: var(--pico-color); }
+  .surf-status.error { color: var(--pico-primary); }
+  .surf button.cta {
+    margin: 0;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.85rem;
+    width: auto;
+  }
+  @media (max-width: 540px) {
+    .surf { grid-template-columns: 1fr; }
+    .surf button.cta { width: 100%; }
   }
 
-  .empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--text-dim);
-    font-size: 14px;
-  }
-
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .row > * { flex: 0 0 auto; }
-  .grow { flex: 1 1 auto; min-width: 0; }
-
-  .alert {
-    margin: 12px 0;
-    padding: 12px 14px;
-    border-radius: 12px;
-    background: rgba(255,107,61,0.08);
-    border: 1px solid rgba(255,107,61,0.25);
-    color: var(--accent-soft);
-    font-size: 13px;
+  /* Sync */
+  .sync-disclosure {
+    padding: 0.6rem 0.85rem;
+    margin-block: 0.75rem 1rem;
+    background: rgba(252, 107, 53, 0.06);
+    border-left: 3px solid var(--pico-primary);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
     line-height: 1.5;
   }
+  .sync-disclosure strong {
+    color: var(--pico-primary);
+    font-weight: 600;
+  }
+  #syncStatus {
+    font-family: var(--pico-font-family-monospace);
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+    background: rgba(45, 212, 191, 0.06);
+    border-left: 3px solid #2dd4bf;
+    padding: 0.5rem 0.85rem;
+    margin: 0 0 0.85rem;
+  }
 
+  /* Alerts, helpers */
+  .alert {
+    margin: 0.75rem 0;
+    padding: 0.6rem 0.85rem;
+    background: rgba(252,107,53,0.08);
+    border: 1px solid rgba(252,107,53,0.3);
+    border-radius: 4px;
+    color: #ffaa7a;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .spinner {
+    display: inline-block;
+    width: 0.8rem; height: 0.8rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: -1px;
+    margin-right: 0.4rem;
+    opacity: 0.7;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .hidden { display: none !important; }
-
-  footer {
-    margin-top: 50px;
+  .grow { flex: 1 1 auto; min-width: 0; }
+  .empty {
     text-align: center;
-    color: var(--text-dim);
-    font-size: 12px;
+    padding: 2.5rem 1.25rem;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
   }
-  footer a { color: var(--text-muted); text-decoration: underline; }
 
-  @media (max-width: 480px) {
-    .surf { grid-template-columns: 1fr; }
-    .surf button { width: 100%; }
+  /* Footer */
+  footer.colophon {
+    margin-top: 3.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+    font-size: 0.78rem;
+    color: var(--pico-muted-color);
+    text-align: center;
   }
+  footer.colophon a { color: var(--pico-color); }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <svg class="wave-accent" width="140" height="60" viewBox="0 0 140 60" fill="none">
-      <path d="M0 38 Q 20 18, 40 38 T 80 38 T 120 38 T 160 38" stroke="#ff6b3d" stroke-width="1.5" fill="none"/>
-      <path d="M0 48 Q 20 28, 40 48 T 80 48 T 120 48 T 160 48" stroke="#5eead4" stroke-width="1.5" fill="none" opacity="0.5"/>
-    </svg>
-    <div class="eyebrow">Rip Curl Search GPS → Strava</div>
+<main class="container">
+
+  <header class="hero">
+    <p class="eyebrow">
+      <span class="badge">Rip Curl Search GPS</span>
+      <span>→ Strava</span>
+    </p>
     <h1>Send your <em>surfs</em> to Strava.</h1>
-    <p class="subtitle">Connect your accounts, pick a session, upload the GPS track to Strava as a Surfing activity — with the wave count, conditions, and (for URBNSURF) the session type in the description.</p>
+    <p class="subtitle">Pulls the GPS track off your Rip Curl Search watch, adds the wave count, ocean conditions, and — at URBNSURF — the session type running at that hour. Posts it to Strava as a Surfing activity.</p>
   </header>
 
   <!-- Step 1: Strava -->
-  <div class="card" id="step-strava">
+  <article class="step" id="step-strava">
     <div class="step-pending">
       <h2>1. Connect Strava</h2>
-      <p>You'll be sent to Strava to authorize this app. We only ask for permission to read your activities and create new ones.</p>
+      <p>You'll be sent to Strava to authorize. We only ask to read your activities and create new ones.</p>
       <button class="cta strava" id="btnStrava">Connect with Strava</button>
     </div>
     <div class="step-done hidden">
       <h2><span class="check">✓</span>Strava connected<span id="stravaWho"></span></h2>
     </div>
-  </div>
+  </article>
 
   <!-- Step 2: Rip Curl -->
-  <div class="card hidden" id="step-ripcurl">
+  <article class="step hidden" id="step-ripcurl">
     <div class="step-pending">
       <h2>2. Sign in to Rip Curl</h2>
-      <p>Use your Rip Curl Search GPS login. Email and password are stored in this browser's localStorage (only on this device) and re-sent to Rip Curl each session to fetch a fresh token. Use the Sign out button to clear them.</p>
+      <p>Use your Rip Curl Search GPS login. Email + password are stored in this browser's localStorage on this device only and re-sent to Rip Curl each session to fetch a fresh token. Hit sign out to clear them.</p>
       <form id="ripcurlForm">
         <input type="email" id="rcEmail" placeholder="your@email.com" autocomplete="email" required>
         <input type="password" id="rcPassword" placeholder="Password" autocomplete="current-password" required>
@@ -283,25 +329,26 @@
     <div class="step-done hidden">
       <h2><span class="check">✓</span>Rip Curl signed in<span id="ripcurlWho"></span></h2>
     </div>
-  </div>
+  </article>
 
   <!-- Step 3: Background sync (optional) -->
-  <div class="card hidden" id="step-sync">
+  <article class="step hidden" id="step-sync">
     <div class="sync-disabled">
-      <h2>Auto-sync <span style="font-size:13px;font-weight:400;color:var(--text-dim);letter-spacing:0;text-transform:none;">(optional)</span></h2>
-      <p>Have the server auto-upload new surfs every 30 minutes — no need to open this page. Your Rip Curl password and a Strava refresh token are encrypted at rest in Cloudflare KV. The site operator holds the master key, so only enable this if you trust them.</p>
+      <h2>3. Auto-sync <small>(optional)</small></h2>
+      <p>Have the server auto-upload new surfs every 30 minutes — no need to open this page after a session.</p>
+      <div class="sync-disclosure"><strong>HEADS UP:</strong> your Rip Curl password and Strava refresh token get encrypted at rest in Cloudflare KV. The site operator holds the master key. Only enable if you trust them — disable any time to wipe the entry.</div>
       <button class="cta secondary" id="btnSyncEnable">Enable background sync</button>
       <div class="alert hidden" id="syncError"></div>
     </div>
     <div class="sync-enabled hidden">
       <h2><span class="check">✓</span>Auto-sync on</h2>
-      <p id="syncStatus" style="margin-bottom: 14px;">Last run: never · 0 surfs uploaded</p>
+      <p id="syncStatus">Last run: never · 0 surfs uploaded</p>
       <button class="ghost" id="btnSyncDisable">Disable auto-sync</button>
     </div>
-  </div>
+  </article>
 
   <!-- Step 4: Surfs -->
-  <div class="card hidden" id="step-surfs">
+  <article class="step hidden" id="step-surfs">
     <div class="toolbar">
       <h2>Your surfs</h2>
       <button class="ghost" id="btnRefresh">Refresh</button>
@@ -309,13 +356,14 @@
       <button class="ghost" id="btnSignOut">Sign out</button>
     </div>
     <div id="surfs" class="surfs"></div>
-  </div>
+  </article>
 
-  <footer>
+  <footer class="colophon">
     Credentials live in your browser. Optional auto-sync stores them encrypted on Cloudflare. ·
     <a href="https://github.com/tommyhenry90/ripcurl-to-strava" target="_blank" rel="noopener">source</a>
   </footer>
-</div>
+
+</main>
 
 <script>
 'use strict';
