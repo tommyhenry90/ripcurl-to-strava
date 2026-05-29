@@ -4,6 +4,7 @@
 // - Handles Strava OAuth token exchange (needs client_secret).
 // - Optional opt-in background sync: stores encrypted creds in KV, scheduled trigger
 //   runs every 30 min to fetch new surfs and upload them.
+// (Deployed via Cloudflare Workers Builds on push to main.)
 
 const RIPCURL_BASE = "https://api.ripcurl.com";
 const URBNSURF_AVAIL = "https://hm42z09myi.execute-api.ap-southeast-2.amazonaws.com/prod/sessions/v1/availability";
