@@ -285,7 +285,22 @@
     </div>
   </div>
 
-  <!-- Step 3: Surfs -->
+  <!-- Step 3: Background sync (optional) -->
+  <div class="card hidden" id="step-sync">
+    <div class="sync-disabled">
+      <h2>Auto-sync <span style="font-size:13px;font-weight:400;color:var(--text-dim);letter-spacing:0;text-transform:none;">(optional)</span></h2>
+      <p>Have the server auto-upload new surfs every 30 minutes — no need to open this page. Your Rip Curl password and a Strava refresh token are encrypted at rest in Cloudflare KV. The site operator holds the master key, so only enable this if you trust them.</p>
+      <button class="cta secondary" id="btnSyncEnable">Enable background sync</button>
+      <div class="alert hidden" id="syncError"></div>
+    </div>
+    <div class="sync-enabled hidden">
+      <h2><span class="check">✓</span>Auto-sync on</h2>
+      <p id="syncStatus" style="margin-bottom: 14px;">Last run: never · 0 surfs uploaded</p>
+      <button class="ghost" id="btnSyncDisable">Disable auto-sync</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Surfs -->
   <div class="card hidden" id="step-surfs">
     <div class="toolbar">
       <h2>Your surfs</h2>
@@ -644,9 +659,11 @@ function render() {
   setStep('#step-ripcurl', haveRipcurl, '#ripcurlWho', u ? (u.first_name || u.email) : '');
 
   if (!haveRipcurl) {
+    $('#step-sync').classList.add('hidden');
     $('#step-surfs').classList.add('hidden');
     return;
   }
+  $('#step-sync').classList.remove('hidden');
   $('#step-surfs').classList.remove('hidden');
 }
 
@@ -804,7 +821,101 @@ function signOutAll() {
   $('#btnRefresh').addEventListener('click', renderSurfs);
   $('#btnUploadAll').addEventListener('click', uploadAllNew);
   $('#btnSignOut').addEventListener('click', signOutAll);
+  $('#btnSyncEnable').addEventListener('click', enableSync);
+  $('#btnSyncDisable').addEventListener('click', disableSync);
+
+  // Poll for sync status when both creds are present
+  if (STATE.stravaTokens && STATE.ripcurlCreds) refreshSyncStatus();
 })();
+
+async function refreshSyncStatus() {
+  try {
+    const token = await stravaAccessToken();
+    const r = await fetch('/api/sync/status', { headers: { 'X-Strava-Token': token } });
+    const data = await r.json();
+    const card = $('#step-sync');
+    if (data.enabled) {
+      card.querySelector('.sync-disabled').classList.add('hidden');
+      card.querySelector('.sync-enabled').classList.remove('hidden');
+      const ago = data.last_sync ? timeAgo(new Date(data.last_sync)) : 'never';
+      const count = data.uploaded_count || 0;
+      const errLine = data.last_error ? ` · <span style="color:var(--accent-soft)">last error: ${escapeHtml(data.last_error)}</span>` : '';
+      $('#syncStatus').innerHTML = `Last run ${ago} · ${count} surf${count === 1 ? '' : 's'} uploaded${errLine}`;
+    } else {
+      card.querySelector('.sync-disabled').classList.remove('hidden');
+      card.querySelector('.sync-enabled').classList.add('hidden');
+    }
+  } catch (e) {
+    // Silent fail; user can still use manual sync
+    console.warn('sync status check failed:', e);
+  }
+}
+
+function timeAgo(d) {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)} min ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+async function enableSync() {
+  const btn = $('#btnSyncEnable');
+  const errBox = $('#syncError');
+  errBox.classList.add('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Enabling…';
+  try {
+    const accessToken = await stravaAccessToken();
+    const refreshToken = STATE.stravaTokens.refresh_token;
+    const r = await fetch('/api/sync/enable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        strava_access_token: accessToken,
+        strava_refresh_token: refreshToken,
+        ripcurl_email: STATE.ripcurlCreds.email,
+        ripcurl_password: STATE.ripcurlCreds.password,
+      }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || `enable failed (${r.status})`);
+    }
+    await refreshSyncStatus();
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enable background sync';
+  }
+}
+
+async function disableSync() {
+  if (!confirm('Disable auto-sync and delete your stored credentials from the server?')) return;
+  const btn = $('#btnSyncDisable');
+  btn.disabled = true;
+  btn.textContent = 'Disabling…';
+  try {
+    const accessToken = await stravaAccessToken();
+    const r = await fetch('/api/sync/disable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strava_access_token: accessToken }),
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || `disable failed (${r.status})`);
+    }
+    await refreshSyncStatus();
+  } catch (e) {
+    alert('Couldn\'t disable: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Disable auto-sync';
+  }
+}
 </script>
 </body>
 </html>

@@ -11,3 +11,11 @@ binding = "ASSETS"
 STRAVA_CLIENT_ID = "251692"
 
 # STRAVA_CLIENT_SECRET — set via .dev.vars (local) or `wrangler secret put STRAVA_CLIENT_SECRET` (prod)
+# SYNC_MASTER_KEY     — 32-byte base64 key for AES-GCM of stored creds. Same source.
+
+[[kv_namespaces]]
+binding = "RCS_SYNC"
+id = "a7e5bab9625840308aa33c7f234cc977"
+
+[triggers]
+crons = ["*/30 * * * *"]
