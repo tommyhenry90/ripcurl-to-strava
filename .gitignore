@@ -8,3 +8,4 @@ web/.dev.vars
 web/.wrangler/
 web/node_modules/
 web/preview-*.png
+.idea/
