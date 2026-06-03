@@ -163,10 +163,41 @@ async function urbnsurfSessionName(surf) {
   return bestOverlap >= 10 ? bestTitle : null;
 }
 
+// ---------- activity type detection ----------
+function activityType(surf) {
+  if (!surf.is_activity) return "surf";
+  const speed = surf.speed_max || 0;
+  if (speed < 10) return "walk";
+  if (speed < 25) return "run";
+  return "ride";
+}
+const STRAVA_SPORT_TYPE = { surf: "Surfing", run: "Run", walk: "Walk", ride: "Ride" };
+
+function timeOfDay(surf) {
+  const offset = +(surf.utc_offset || 0);
+  const start = new Date(surf.start_datetime.replace(" ", "T").replace(" +", "+"));
+  const h = new Date(start.getTime() + offset * 3600_000).getUTCHours();
+  if (h < 4) return "Late-night";
+  if (h < 7) return "Dawn";
+  if (h < 11) return "Morning";
+  if (h < 14) return "Lunch";
+  if (h < 17) return "Arvo";
+  if (h < 20) return "Evening";
+  return "Night";
+}
+
+function pacePerKm(durSec, distKm) {
+  if (!distKm) return "";
+  const s = Math.round(durSec / distKm);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}/km`;
+}
+
 // ---------- copy ----------
 const WIND_WORDS = ["calm", "light", "moderate", "strong", "very strong", "gale"];
 
 function surfTitle(surf, session) {
+  const kind = activityType(surf);
+  if (kind !== "surf") return `${timeOfDay(surf)} ${kind}`;
   const spot = (surf.location || "Surf").split(",")[0].trim() || "Surf";
   return session ? `${spot} - ${session}` : spot;
 }
@@ -197,9 +228,36 @@ function conditionsLine(surf) {
 }
 
 function surfDescription(surf, session, poolTemp) {
+  const kind = activityType(surf);
+  const durSec = surf.duration_total || 0;
+  const durMin = Math.round(durSec / 60);
+  const distKm = (surf.distance_total || 0) / 1000;
+  const speedMax = surf.speed_max || 0;
+  const avgKmh = durSec ? (distKm / (durSec / 3600)) : 0;
+
+  if (kind === "run") {
+    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
+    const pace = pacePerKm(durSec, distKm);
+    if (pace) bits.push(pace + " pace");
+    if (speedMax) bits.push(`top ${speedMax.toFixed(1)} km/h`);
+    return bits.join(" · ") + ".";
+  }
+  if (kind === "walk") {
+    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
+    const pace = pacePerKm(durSec, distKm);
+    if (pace) bits.push(pace + " pace");
+    return bits.join(" · ") + ".";
+  }
+  if (kind === "ride") {
+    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
+    if (avgKmh) bits.push(`${avgKmh.toFixed(1)} km/h avg`);
+    if (speedMax) bits.push(`top ${speedMax.toFixed(1)} km/h`);
+    return bits.join(" · ") + ".";
+  }
+
+  // Surf
   const waves = surf.wave_count || 0;
   const waveWord = waves === 1 ? "Wave" : "Waves";
-  const durMin = Math.round((surf.duration_total || 0) / 60);
   const leadBits = [`${durMin} minutes`, `${waves} ${waveWord}`];
   let context = null;
   if (session) {
@@ -211,7 +269,7 @@ function surfDescription(surf, session, poolTemp) {
   const stats = [];
   const longest = Math.round(surf.longest_wave_by_distance || 0);
   if (longest) stats.push(`Longest wave ${longest}m`);
-  if (surf.speed_max) stats.push(`Top speed ${surf.speed_max.toFixed(1)} km/h`);
+  if (speedMax) stats.push(`Top speed ${speedMax.toFixed(1)} km/h`);
   const dw = (surf.distance_waves || 0) / 1000;
   if (dw) stats.push(`${dw.toFixed(2)}km Riding`);
   const dp = (surf.distance_paddles || 0) / 1000;
@@ -253,7 +311,10 @@ function parseDuplicate(msg) {
 }
 
 async function uploadSurfToStrava(surf, accessToken) {
-  const session = await urbnsurfSessionName(surf);
+  const kind = activityType(surf);
+  const sportType = STRAVA_SPORT_TYPE[kind] || "Surfing";
+  // URBNSURF session lookup only applies to surfs
+  const session = kind === "surf" ? await urbnsurfSessionName(surf) : null;
   let poolTemp = null;
   if (session) {
     const temps = await urbnsurfPoolTemps();
@@ -267,7 +328,7 @@ async function uploadSurfToStrava(surf, accessToken) {
   form.append("name", title);
   form.append("description", description);
   form.append("data_type", "gpx");
-  form.append("sport_type", "Surfing");
+  form.append("sport_type", sportType);
   form.append("external_id", `ripcurl-${surf.id}`);
   form.append("file", new Blob([gpx], { type: "application/gpx+xml" }), `${surf.id}.gpx`);
 

@@ -244,6 +244,31 @@ def urbnsurf_session_name(surf: dict) -> str | None:
     return best_title if best_overlap >= 10 else None
 
 
+# ---------- activity type detection ----------
+
+def activity_type(surf: dict) -> str:
+    """Return one of: surf, run, walk, ride. Inferred from speed_max for non-surf entries."""
+    if not surf.get("is_activity"):
+        return "surf"
+    speed = surf.get("speed_max") or 0
+    if speed < 10: return "walk"
+    if speed < 25: return "run"
+    return "ride"
+
+
+STRAVA_SPORT_TYPE = {
+    "surf": "Surfing",
+    "run":  "Run",
+    "walk": "Walk",
+    "ride": "Ride",
+}
+
+
+def _local_dt(surf: dict) -> datetime:
+    offset = timedelta(hours=int(surf.get("utc_offset", 0)))
+    return datetime.strptime(surf["start_datetime"][:19], "%Y-%m-%d %H:%M:%S") + offset
+
+
 # ---------- copy ----------
 
 def _time_of_day(hour: int) -> str:
@@ -256,12 +281,24 @@ def _time_of_day(hour: int) -> str:
     return "Night"
 
 
+def _pace_per_km(duration_s: float, distance_km: float) -> str:
+    if not distance_km: return ""
+    sec_per_km = duration_s / distance_km
+    m, s = divmod(int(round(sec_per_km)), 60)
+    return f"{m}:{s:02d}/km"
+
+
 def surf_title(surf: dict) -> str:
-    spot = (surf.get("location") or "Surf").split(",")[0].strip() or "Surf"
-    program = urbnsurf_session_name(surf)
-    if program:
-        return f"{spot} - {program}"
-    return spot
+    kind = activity_type(surf)
+    if kind == "surf":
+        spot = (surf.get("location") or "Surf").split(",")[0].strip() or "Surf"
+        program = urbnsurf_session_name(surf)
+        if program:
+            return f"{spot} - {program}"
+        return spot
+    # Run / Walk / Ride: time-of-day + noun
+    tod = _time_of_day(_local_dt(surf).hour)
+    return f"{tod} {kind}"
 
 
 _WIND_WORDS = ["calm", "light", "moderate", "strong", "very strong", "gale"]
@@ -303,10 +340,33 @@ def conditions_line(surf: dict) -> str | None:
 
 
 def surf_description(surf: dict) -> str:
+    kind = activity_type(surf)
+    dur_s = surf.get("duration_total") or 0
+    dur_min = round(dur_s / 60)
+    dist_km = (surf.get("distance_total") or 0) / 1000
+    speed_max = surf.get("speed_max") or 0
+    avg_kmh = (dist_km / (dur_s / 3600)) if dur_s else 0
+
+    if kind == "run":
+        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
+        pace = _pace_per_km(dur_s, dist_km)
+        if pace: bits.append(pace + " pace")
+        if speed_max: bits.append(f"top {speed_max:.1f} km/h")
+        return " · ".join(bits) + "."
+    if kind == "walk":
+        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
+        pace = _pace_per_km(dur_s, dist_km)
+        if pace: bits.append(pace + " pace")
+        return " · ".join(bits) + "."
+    if kind == "ride":
+        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
+        if avg_kmh: bits.append(f"{avg_kmh:.1f} km/h avg")
+        if speed_max: bits.append(f"top {speed_max:.1f} km/h")
+        return " · ".join(bits) + "."
+
+    # Surf
     waves = surf.get("wave_count", 0)
     wave_word = "Wave" if waves == 1 else "Waves"
-    dur_min = round((surf.get("duration_total") or 0) / 60)
-
     program = urbnsurf_session_name(surf)
     lead_bits = [f"{dur_min} minutes", f"{waves} {wave_word}"]
     if program:
@@ -324,9 +384,8 @@ def surf_description(surf: dict) -> str:
     longest = int(surf.get("longest_wave_by_distance") or 0)
     if longest:
         bits.append(f"Longest wave {longest}m")
-    speed = surf.get("speed_max")
-    if speed:
-        bits.append(f"Top speed {speed:.1f} km/h")
+    if speed_max:
+        bits.append(f"Top speed {speed_max:.1f} km/h")
     dw = (surf.get("distance_waves") or 0) / 1000
     if dw:
         bits.append(f"{dw:.2f}km Riding")
@@ -481,14 +540,22 @@ def strava_update_activity(activity_id: int, name: str, description: str | None 
               data=body)
 
 
-def strava_upload(gpx: str, name: str, description: str, external_id: str) -> dict:
+def _parse_strava_duplicate(msg: str | None) -> int | None:
+    """Strava returns 'duplicate of <a href="/activities/N">…' on re-upload. Return N if matched."""
+    if not msg: return None
+    m = re.search(r"/activities/(\d+)", msg)
+    return int(m.group(1)) if m and re.search(r"duplicate", msg, re.I) else None
+
+
+def strava_upload(gpx: str, name: str, description: str, external_id: str,
+                  sport_type: str = "Surfing") -> dict:
     token = strava_access_token()
     body, ctype = _multipart(
         fields={
             "name": name,
             "description": description,
             "data_type": "gpx",
-            "sport_type": "Surfing",
+            "sport_type": sport_type,
             "external_id": external_id,
         },
         files={"file": (f"{external_id}.gpx", gpx.encode(), "application/gpx+xml")},
@@ -496,6 +563,11 @@ def strava_upload(gpx: str, name: str, description: str, external_id: str) -> di
     upload = http_json("POST", f"{STRAVA_API}/uploads",
                        headers={"Authorization": f"Bearer {token}", "Content-Type": ctype},
                        data=body)
+    dup = _parse_strava_duplicate(upload.get("error"))
+    if dup:
+        return {"activity_id": dup, "was_duplicate": True}
+    if upload.get("error"):
+        sys.exit(f"Strava upload failed: {upload['error']}")
     upload_id = upload["id"]
     print(f"  upload id {upload_id} queued — polling…")
     for _ in range(30):
@@ -504,6 +576,9 @@ def strava_upload(gpx: str, name: str, description: str, external_id: str) -> di
                            headers={"Authorization": f"Bearer {token}"})
         if status.get("activity_id"):
             return status
+        dup = _parse_strava_duplicate(status.get("error"))
+        if dup:
+            return {"activity_id": dup, "was_duplicate": True}
         if status.get("error"):
             sys.exit(f"Strava upload failed: {status['error']}")
     sys.exit("Timed out waiting for Strava to process upload.")
@@ -540,6 +615,7 @@ def cmd_gpx(args: argparse.Namespace) -> None:
 
 
 def cmd_upload(args: argparse.Namespace) -> None:
+    sport_type = "Surfing"
     if args.from_gpx:
         gpx = Path(args.from_gpx).read_text()
         name = args.name or Path(args.from_gpx).stem
@@ -552,8 +628,10 @@ def cmd_upload(args: argparse.Namespace) -> None:
         name = args.name or meta["name"]
         description = args.description or meta["description"]
         external_id = f"ripcurl-{surf_id}"
-        print(f"→ {name}  ({surf.get('wave_count', 0)} waves)")
-    result = strava_upload(gpx, name, description, external_id=external_id)
+        kind = activity_type(surf)
+        sport_type = STRAVA_SPORT_TYPE.get(kind, "Surfing")
+        print(f"→ {name}  ({kind})")
+    result = strava_upload(gpx, name, description, external_id=external_id, sport_type=sport_type)
     print(f"✓ Strava activity: https://www.strava.com/activities/{result['activity_id']}")
 
 
@@ -599,14 +677,18 @@ def cmd_sync(args: argparse.Namespace) -> None:
         try:
             surf = ripcurl_get(f"/surfs/{surf_id}")
             gpx, meta = surf_to_gpx(surf)
-            print(f"[sync] uploading {surf_id}: {meta['name']} ({surf.get('wave_count', 0)} waves)")
+            kind = activity_type(surf)
+            sport_type = STRAVA_SPORT_TYPE.get(kind, "Surfing")
+            print(f"[sync] uploading {surf_id}: {meta['name']} ({kind})")
             result = strava_upload(gpx, meta["name"], meta["description"],
-                                   external_id=f"ripcurl-{surf_id}")
+                                   external_id=f"ripcurl-{surf_id}",
+                                   sport_type=sport_type)
             activity_id = result["activity_id"]
             state[surf_id] = {
                 "activity_id": activity_id,
                 "uploaded_at": datetime.now(timezone.utc).isoformat(),
                 "name": meta["name"],
+                "sport_type": sport_type,
             }
             save_state(state)
             print(f"[sync] ✓ https://www.strava.com/activities/{activity_id}")
