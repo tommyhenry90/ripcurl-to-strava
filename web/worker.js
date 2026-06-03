@@ -229,31 +229,12 @@ function conditionsLine(surf) {
 
 function surfDescription(surf, session, poolTemp) {
   const kind = activityType(surf);
-  const durSec = surf.duration_total || 0;
-  const durMin = Math.round(durSec / 60);
-  const distKm = (surf.distance_total || 0) / 1000;
-  const speedMax = surf.speed_max || 0;
-  const avgKmh = durSec ? (distKm / (durSec / 3600)) : 0;
+  // Strava already shows distance / duration / pace / speed in its UI — no
+  // need to duplicate that in the description for non-surf activities.
+  if (kind === "run" || kind === "walk" || kind === "ride") return "";
 
-  if (kind === "run") {
-    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
-    const pace = pacePerKm(durSec, distKm);
-    if (pace) bits.push(pace + " pace");
-    if (speedMax) bits.push(`top ${speedMax.toFixed(1)} km/h`);
-    return bits.join(" · ") + ".";
-  }
-  if (kind === "walk") {
-    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
-    const pace = pacePerKm(durSec, distKm);
-    if (pace) bits.push(pace + " pace");
-    return bits.join(" · ") + ".";
-  }
-  if (kind === "ride") {
-    const bits = [`${distKm.toFixed(2)}km`, `${durMin} min`];
-    if (avgKmh) bits.push(`${avgKmh.toFixed(1)} km/h avg`);
-    if (speedMax) bits.push(`top ${speedMax.toFixed(1)} km/h`);
-    return bits.join(" · ") + ".";
-  }
+  const durMin = Math.round((surf.duration_total || 0) / 60);
+  const speedMax = surf.speed_max || 0;
 
   // Surf
   const waves = surf.wave_count || 0;

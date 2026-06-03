@@ -341,30 +341,13 @@ def conditions_line(surf: dict) -> str | None:
 
 def surf_description(surf: dict) -> str:
     kind = activity_type(surf)
-    dur_s = surf.get("duration_total") or 0
-    dur_min = round(dur_s / 60)
-    dist_km = (surf.get("distance_total") or 0) / 1000
+    # Strava already renders distance/duration/pace/speed for non-surf activities —
+    # no need to duplicate that in the description.
+    if kind in ("run", "walk", "ride"):
+        return ""
+
+    dur_min = round((surf.get("duration_total") or 0) / 60)
     speed_max = surf.get("speed_max") or 0
-    avg_kmh = (dist_km / (dur_s / 3600)) if dur_s else 0
-
-    if kind == "run":
-        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
-        pace = _pace_per_km(dur_s, dist_km)
-        if pace: bits.append(pace + " pace")
-        if speed_max: bits.append(f"top {speed_max:.1f} km/h")
-        return " · ".join(bits) + "."
-    if kind == "walk":
-        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
-        pace = _pace_per_km(dur_s, dist_km)
-        if pace: bits.append(pace + " pace")
-        return " · ".join(bits) + "."
-    if kind == "ride":
-        bits = [f"{dist_km:.2f}km", f"{dur_min} min"]
-        if avg_kmh: bits.append(f"{avg_kmh:.1f} km/h avg")
-        if speed_max: bits.append(f"top {speed_max:.1f} km/h")
-        return " · ".join(bits) + "."
-
-    # Surf
     waves = surf.get("wave_count", 0)
     wave_word = "Wave" if waves == 1 else "Waves"
     program = urbnsurf_session_name(surf)
