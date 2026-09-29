@@ -180,7 +180,10 @@
     flex-wrap: wrap;
   }
   .toolbar h2 {
-    flex: 1; min-width: 0;
+    /* Grow to push the buttons right, but never shrink below the heading's own width —
+       on narrow screens the buttons wrap onto the next line instead. */
+    flex: 1 0 auto;
+    white-space: nowrap;
     margin: 0;
     font-size: 1.25rem;
     letter-spacing: -0.012em;
@@ -229,6 +232,8 @@
   @media (max-width: 540px) {
     .surf { grid-template-columns: 1fr; }
     .surf button.cta { width: 100%; }
+    .toolbar { gap: 0.5rem; }
+    .toolbar h2 { flex-basis: 100%; }
   }
 
   /* Sync */
