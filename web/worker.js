@@ -1,7 +1,8 @@
-// Cloudflare Worker for ripcurl-to-strava web app.
+// Cloudflare Worker for the Surf Sync web app.
 // - Serves the static UI.
 // - CORS-proxies api.ripcurl.com + UrbnSurf endpoints.
-// - Handles Strava OAuth token exchange (needs client_secret).
+// - Handles Strava OAuth token exchange (needs client_secret) and deauthorization.
+// - Receives Strava webhook events so a revoked athlete's stored data is deleted.
 // - Optional opt-in background sync: stores encrypted creds in KV, scheduled trigger
 //   runs every 30 min to fetch new surfs and upload them.
 // (Deployed via Cloudflare Workers Builds on push to main.)
@@ -64,8 +65,20 @@ async function stravaTokenExchange(env, params) {
     method: "POST", body: form,
     headers: { "content-type": "application/x-www-form-urlencoded" },
   });
-  if (!r.ok) throw new Error(`Strava token failed: ${r.status} ${await r.text()}`);
+  if (!r.ok) {
+    const err = new Error(`Strava token failed: ${r.status} ${await r.text()}`);
+    err.status = r.status;
+    throw err;
+  }
   return r.json();
+}
+async function stravaDeauthorize(accessToken) {
+  const r = await fetch(`${STRAVA_OAUTH}/deauthorize`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  // 401 means the token is already revoked — that's the outcome we want anyway.
+  if (!r.ok && r.status !== 401) throw new Error(`Strava deauthorize failed: ${r.status}`);
 }
 async function stravaVerifyAthlete(accessToken) {
   const r = await fetch(`${STRAVA_API}/athlete`, {
@@ -368,7 +381,8 @@ async function handleSyncEnable(request, env, origin) {
     email: ripcurl_email,
     password_enc: await encrypt(ripcurl_password, key),
     refresh_enc: await encrypt(strava_refresh_token, key),
-    athlete: { id: athlete.id, firstname: athlete.firstname, lastname: athlete.lastname },
+    // Only the athlete id is kept — no other Strava profile data is cached server-side.
+    athlete: { id: athlete.id },
     uploaded_surfs: {},
     last_sync: null,
     last_error: null,
@@ -400,8 +414,63 @@ async function handleSyncStatus(request, env, origin) {
     last_sync: state.last_sync,
     last_error: state.last_error,
     uploaded_count: Object.keys(state.uploaded_surfs || {}).length,
-    athlete: state.athlete,
   }, 200, origin);
+}
+
+// ---------- strava deauthorize + webhook ----------
+// Revokes the app's access on Strava and wipes any server-side state for the athlete.
+async function handleStravaDeauthorize(request, env, origin) {
+  const { strava_access_token } = await request.json();
+  if (!strava_access_token) return jsonResp({ error: "missing strava_access_token" }, 400, origin);
+  let athleteId = null;
+  try { athleteId = (await stravaVerifyAthlete(strava_access_token)).id; } catch { /* token may already be dead */ }
+  await stravaDeauthorize(strava_access_token);
+  if (athleteId) await deleteUserState(env, athleteId);
+  return jsonResp({ ok: true }, 200, origin);
+}
+
+// Strava subscription validation: echo hub.challenge if the verify token matches.
+function handleStravaWebhookVerify(url, env) {
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
+  if (mode !== "subscribe" || !env.STRAVA_WEBHOOK_VERIFY_TOKEN || token !== env.STRAVA_WEBHOOK_VERIFY_TOKEN) {
+    return jsonResp({ error: "forbidden" }, 403);
+  }
+  return jsonResp({ "hub.challenge": challenge }, 200);
+}
+
+// Strava expects a 200 within 2s, so the actual work runs in waitUntil.
+async function handleStravaWebhookEvent(request, env, ctx) {
+  const event = await request.json().catch(() => null);
+  if (event && event.object_type === "athlete" && event.updates?.authorized === "false") {
+    ctx.waitUntil(onAthleteDeauthorized(env, event));
+  }
+  return jsonResp({ ok: true }, 200);
+}
+
+async function onAthleteDeauthorized(env, event) {
+  if (env.STRAVA_WEBHOOK_SUBSCRIPTION_ID && String(event.subscription_id) !== String(env.STRAVA_WEBHOOK_SUBSCRIPTION_ID)) return;
+  const athleteId = event.object_id;
+  const state = await loadUserState(env, athleteId);
+  if (!state) return;
+  // The webhook endpoint is public, so confirm the revocation before deleting:
+  // a still-valid refresh token means this event is spoofed.
+  try {
+    const masterK = await masterKey(env);
+    const refreshToken = await decrypt(state.refresh_enc, masterK);
+    const tok = await stravaTokenExchange(env, { grant_type: "refresh_token", refresh_token: refreshToken });
+    if (tok.refresh_token && tok.refresh_token !== refreshToken) {
+      state.refresh_enc = await encrypt(tok.refresh_token, masterK);
+      await storeUserState(env, athleteId, state);
+    }
+    console.log(`[webhook] ignoring deauth for ${athleteId}: token still valid`);
+    return;
+  } catch (e) {
+    if (e.status && e.status >= 500) return; // Strava outage — the scheduled sync will retry the check
+  }
+  await deleteUserState(env, athleteId);
+  console.log(`[webhook] deleted data for deauthorized athlete ${athleteId}`);
 }
 
 // ---------- scheduled handler ----------
@@ -410,11 +479,21 @@ async function syncOneUser(env, key, state) {
   const password = await decrypt(state.password_enc, masterK);
   const refreshToken = await decrypt(state.refresh_enc, masterK);
 
-  // Fresh Strava access token
-  const stravaTok = await stravaTokenExchange(env, {
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-  });
+  // Fresh Strava access token. A 400/401 means the athlete revoked access —
+  // delete their stored data (backstop in case the deauth webhook was missed).
+  let stravaTok;
+  try {
+    stravaTok = await stravaTokenExchange(env, {
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    });
+  } catch (e) {
+    if (e.status === 400 || e.status === 401) {
+      await env.RCS_SYNC.delete(key);
+      return { deleted: true };
+    }
+    throw e;
+  }
   const accessToken = stravaTok.access_token;
   // If refresh_token rotated, re-encrypt
   if (stravaTok.refresh_token && stravaTok.refresh_token !== refreshToken) {
@@ -437,6 +516,8 @@ async function syncOneUser(env, key, state) {
     }
   }
 
+  // Drop profile fields that older entries cached — only the athlete id is needed.
+  if (state.athlete) state.athlete = { id: state.athlete.id };
   state.last_sync = new Date().toISOString();
   if (newIds.length === 0) state.last_error = null;
   await env.RCS_SYNC.put(key, JSON.stringify(state));
@@ -501,7 +582,7 @@ async function handleRipcurlProxy(url, request, origin) {
 
 // ---------- main ----------
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const origin = request.headers.get("origin") || "*";
     if (request.method === "OPTIONS") return new Response(null, { headers: cors(origin) });
@@ -512,6 +593,15 @@ export default {
       }
       if (url.pathname === "/api/strava/token" && request.method === "POST") {
         return handleStravaToken(request, env, origin);
+      }
+      if (url.pathname === "/api/strava/deauthorize" && request.method === "POST") {
+        return handleStravaDeauthorize(request, env, origin);
+      }
+      if (url.pathname === "/api/strava/webhook" && request.method === "GET") {
+        return handleStravaWebhookVerify(url, env);
+      }
+      if (url.pathname === "/api/strava/webhook" && request.method === "POST") {
+        return handleStravaWebhookEvent(request, env, ctx);
       }
       if (url.pathname.startsWith("/api/ripcurl/")) {
         return handleRipcurlProxy(url, request, origin);

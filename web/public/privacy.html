@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Surf Sync — Privacy</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏄%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style>
+  [data-theme="dark"], :root:not([data-theme="light"]) {
+    --pico-background-color: #0d1620;
+    --pico-color: #e6ecf2;
+    --pico-muted-color: #97a4b1;
+    --pico-muted-border-color: #1e2a36;
+    --pico-primary: #fc6b35;
+    --pico-primary-underline: #fc6b35;
+    --pico-primary-hover: #fd8053;
+    --pico-h1-color: #f4f7fb;
+    --pico-h2-color: #eef2f6;
+  }
+  body { background: var(--pico-background-color); }
+  main.container { max-width: 760px; padding-block: 2.5rem 5rem; }
+  h2 { font-size: 1.2rem; margin-top: 2rem; }
+  .muted { color: var(--pico-muted-color); }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--pico-muted-border-color); font-size: 0.8rem; color: var(--pico-muted-color); }
+</style>
+</head>
+<body>
+<main class="container">
+  <p><a href="/">← Back to Surf Sync</a></p>
+  <h1>Privacy policy</h1>
+  <p class="muted">Last updated 29 September 2026</p>
+
+  <p>Surf Sync uploads surf sessions recorded by a Rip Curl Search GPS watch to your Strava account. It is an independent, non-commercial project and is not affiliated with, sponsored by or endorsed by Strava or Rip Curl. This page explains what data Surf Sync handles and what happens to it.</p>
+
+  <h2>What we access</h2>
+  <ul>
+    <li><strong>Strava.</strong> When you connect Strava, you grant Surf Sync the <code>read</code> and <code>activity:write</code> permissions. We use them to read your athlete id and to upload new activities to your account. We never read your existing activities, followers or other Strava data.</li>
+    <li><strong>Rip Curl.</strong> Your Rip Curl Search GPS email and password, used to sign in to Rip Curl and download your recorded sessions (GPS track, wave count and conditions).</li>
+  </ul>
+
+  <h2>Where it is stored</h2>
+  <ul>
+    <li><strong>In your browser (default).</strong> Your Strava tokens, Rip Curl login and a list of already-uploaded sessions are kept in this browser's local storage on your device. Requests to Rip Curl and Strava pass through our server to get around browser restrictions, but nothing is saved there.</li>
+    <li><strong>On our server (only if you turn on auto-sync).</strong> Your Rip Curl email and password, and your Strava refresh token, are stored encrypted (AES-GCM) in Cloudflare KV so sessions can upload every 30 minutes. We also keep your Strava athlete id and the ids of activities we've created, so nothing is uploaded twice. No other Strava data is stored.</li>
+  </ul>
+
+  <h2>How your data is used</h2>
+  <p>Your data is used only to upload your own sessions to your own Strava account. We never share or sell it, never show it to other users, and never use it for advertising, analytics or training AI models. There are no ads or third-party trackers on this site.</p>
+
+  <h2>Deleting your data</h2>
+  <ul>
+    <li><strong>Sign out &amp; disconnect</strong> revokes Surf Sync's access on Strava, deletes any auto-sync data on our server, and clears this browser.</li>
+    <li><strong>Disable auto-sync</strong> deletes everything stored on our server straight away.</li>
+    <li>If you revoke access on Strava (<a href="https://www.strava.com/settings/apps" target="_blank" rel="noopener">Settings → My Apps</a>), Strava notifies us and we delete your server-side data automatically, at the latest on the next sync run (within 30 minutes).</li>
+  </ul>
+
+  <h2>Contact</h2>
+  <p>Questions or deletion requests: <a href="https://github.com/tommyhenry90/ripcurl-to-strava/issues" target="_blank" rel="noopener">open an issue on GitHub</a>.</p>
+
+  <footer>Strava is a trademark of Strava, Inc. Rip Curl and Search GPS are trademarks of Rip Curl. Both are used here only to describe compatibility.</footer>
+</main>
+</body>
+</html>
