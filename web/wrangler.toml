@@ -18,6 +18,8 @@ STRAVA_CLIENT_ID = "251692"
 
 # STRAVA_CLIENT_SECRET — set via .dev.vars (local) or `wrangler secret put STRAVA_CLIENT_SECRET` (prod)
 # SYNC_MASTER_KEY     — 32-byte base64 key for AES-GCM of stored creds. Same source.
+# STRAVA_WEBHOOK_VERIFY_TOKEN     — random string used when creating the Strava webhook subscription.
+# STRAVA_WEBHOOK_SUBSCRIPTION_ID  — (optional) id returned by Strava; events from other ids are ignored.
 
 [[kv_namespaces]]
 binding = "RCS_SYNC"

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Rip Curl → Strava</title>
+<title>Surf Sync — upload Rip Curl Search GPS surfs to Strava</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🏄%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -130,7 +130,17 @@
 
   /* Buttons — Pico handles most, just keep selectors JS uses */
   .cta { /* Pico .button (any <button>) is already primary */ }
-  .cta.strava { /* Use Pico primary, which is already Strava-orange */ }
+  /* Official "Connect with Strava" asset — rendered unmodified, per Strava's brand guidelines */
+  button.strava-connect {
+    background: none; border: 0; padding: 0; margin: 0;
+    width: auto; line-height: 0; cursor: pointer;
+  }
+  button.strava-connect img { height: 48px; width: auto; display: block; }
+  /* Shown only if the official asset is missing from /strava/ */
+  button.strava-connect.fallback {
+    background: #FC5200; color: #fff; font-weight: 600;
+    padding: 0.75rem 1.25rem; border-radius: 4px; line-height: 1.2;
+  }
   .cta.secondary {
     --pico-background-color: var(--pico-secondary-background);
     --pico-border-color: var(--pico-secondary-border);
@@ -207,8 +217,8 @@
     color: #2dd4bf;
     margin-top: 0.35rem;
   }
-  .surf-status a { color: #2dd4bf; }
-  .surf-status a:hover { color: var(--pico-color); }
+  /* "View on Strava" links: bold, underlined, Strava orange, per Strava's brand guidelines */
+  a.view-on-strava { color: #FC5200; font-weight: 700; text-decoration: underline; }
   .surf-status.error { color: var(--pico-primary); }
   .surf button.cta {
     margin: 0;
@@ -288,6 +298,8 @@
     text-align: center;
   }
   footer.colophon a { color: var(--pico-color); }
+  footer.colophon .powered-by { display: block; margin: 0 auto 0.75rem; height: 24px; width: auto; }
+  footer.colophon p { margin-bottom: 0.4rem; font-size: inherit; }
 </style>
 </head>
 <body>
@@ -296,7 +308,7 @@
   <header class="hero">
     <p class="eyebrow">
       <span class="badge">Rip Curl Search GPS</span>
-      <span>→ Strava</span>
+      <span>Surf Sync</span>
     </p>
     <h1>Send your surfs to Strava.</h1>
     <p class="subtitle">Automatically send your GPS data, wave count and surf conditions straight from your Rip Curl watch to Strava</p>
@@ -306,8 +318,9 @@
   <article class="step" id="step-strava">
     <div class="step-pending">
       <h2>1. Connect Strava</h2>
-      <p>You'll be sent to Strava to authorize. We only ask to read your activities and create new ones.</p>
-      <button class="cta strava" id="btnStrava">Connect with Strava</button>
+      <p>You'll be sent to Strava to authorize. We only ask permission to upload new activities to your account.</p>
+      <button class="strava-connect" id="btnStrava" aria-label="Connect with Strava"><img src="/strava/btn_strava_connect_with_orange.svg" alt="Connect with Strava" onerror="this.parentNode.classList.add('fallback'); this.replaceWith('Connect with Strava')"></button>
+      <div class="alert hidden" id="stravaError"></div>
     </div>
     <div class="step-done hidden">
       <h2><span class="check">✓</span>Strava connected<span id="stravaWho"></span></h2>
@@ -353,14 +366,17 @@
       <h2>Your surfs</h2>
       <button class="ghost" id="btnRefresh">Refresh</button>
       <button class="ghost" id="btnUploadAll">Upload all new</button>
-      <button class="ghost" id="btnSignOut">Sign out</button>
+      <button class="ghost" id="btnSignOut">Sign out &amp; disconnect</button>
     </div>
     <div id="surfs" class="surfs"></div>
   </article>
 
   <footer class="colophon">
-    Credentials live in your browser. Optional auto-sync stores them encrypted on Cloudflare. ·
-    <a href="https://github.com/tommyhenry90/ripcurl-to-strava" target="_blank" rel="noopener">source</a>
+    <img class="powered-by" src="/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava" onerror="this.replaceWith('Powered by Strava')">
+    <p>Surf Sync is an independent project. It is not affiliated with, sponsored by or endorsed by Strava or Rip Curl.</p>
+    <p>Credentials live in your browser. Optional auto-sync stores them encrypted on Cloudflare. ·
+    <a href="/privacy.html">privacy</a> ·
+    <a href="https://github.com/tommyhenry90/ripcurl-to-strava" target="_blank" rel="noopener">source</a></p>
   </footer>
 
 </main>
@@ -399,7 +415,7 @@ function stravaAuthorizeUrl() {
     response_type: 'code',
     redirect_uri: window.location.origin + '/',
     approval_prompt: 'auto',
-    scope: 'activity:write,activity:read',
+    scope: 'read,activity:write',
   });
   return `https://www.strava.com/oauth/authorize?${params}`;
 }
@@ -802,7 +818,7 @@ async function renderSurfs() {
       <div class="grow">
         <div class="surf-title">${escapeHtml(title)}</div>
         <div class="surf-meta">${meta}</div>
-        <div class="surf-status ${already ? '' : 'hidden'}">${already ? `✓ Uploaded · <a href="https://www.strava.com/activities/${already.activity_id}" target="_blank" rel="noopener">view on Strava</a>` : ''}</div>
+        <div class="surf-status ${already ? '' : 'hidden'}">${already ? `✓ Uploaded · <a class="view-on-strava" href="https://www.strava.com/activities/${already.activity_id}" target="_blank" rel="noopener">View on Strava</a>` : ''}</div>
       </div>
       <button class="cta ${already ? 'secondary' : ''}" data-action="upload">${already ? 'Re-upload' : 'Upload'}</button>
     `;
@@ -823,7 +839,7 @@ async function handleUploadClick(surfId, card) {
     STATE.uploadedSurfs[surfId] = { activity_id: result.activity_id, name: result.name };
     LS.set('uploaded_surfs', STATE.uploadedSurfs);
     const verb = result.was_duplicate ? 'Already on Strava' : 'Uploaded';
-    status.innerHTML = `✓ ${verb} · <a href="https://www.strava.com/activities/${result.activity_id}" target="_blank" rel="noopener">view activity</a>`;
+    status.innerHTML = `✓ ${verb} · <a class="view-on-strava" href="https://www.strava.com/activities/${result.activity_id}" target="_blank" rel="noopener">View on Strava</a>`;
     btn.textContent = 'Re-upload';
     btn.classList.add('secondary');
   } catch (e) {
@@ -852,8 +868,20 @@ function signOutRipcurl() {
   location.reload();
 }
 
-function signOutAll() {
-  if (!confirm('Sign out and clear all credentials from this browser?')) return;
+// Revokes this app's access on Strava (freeing the connection), deletes any
+// server-side auto-sync data, then clears everything stored in this browser.
+async function signOutAll() {
+  if (!confirm('Sign out, disconnect from Strava and delete all stored data?')) return;
+  try {
+    const token = await stravaAccessToken();
+    const r = await fetch('/api/strava/deauthorize', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strava_access_token: token }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `status ${r.status}`);
+  } catch (e) {
+    if (!confirm(`Couldn't disconnect from Strava (${e.message}). Clear this browser anyway? You can revoke access at strava.com/settings/apps.`)) return;
+  }
   LS.del('strava_tokens');
   LS.del('ripcurl_creds');
   LS.del('ripcurl_user');
@@ -872,7 +900,21 @@ function signOutAll() {
   // Strava OAuth callback
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
-  if (code) {
+  const oauthError = params.get('error');
+  const grantedScope = params.get('scope') || '';
+  if (oauthError) {
+    history.replaceState({}, '', location.pathname);
+    const box = $('#stravaError');
+    box.textContent = oauthError === 'access_denied'
+      ? 'Strava access was not granted. Connect again and tap Authorize to continue.'
+      : `Strava couldn't connect (${oauthError}). Please try again.`;
+    box.classList.remove('hidden');
+  } else if (code && !grantedScope.split(',').includes('activity:write')) {
+    history.replaceState({}, '', location.pathname);
+    const box = $('#stravaError');
+    box.textContent = 'Surf Sync needs permission to upload activities. Connect again and leave "Upload your activities" ticked.';
+    box.classList.remove('hidden');
+  } else if (code) {
     try {
       await stravaExchangeCode(code);
       history.replaceState({}, '', location.pathname);
