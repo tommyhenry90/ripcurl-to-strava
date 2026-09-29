@@ -293,6 +293,33 @@
     font-size: 0.9rem;
   }
 
+  /* Account actions — destructive, so deliberately quiet and out of the way */
+  .account-actions {
+    margin-top: 2.5rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--pico-muted-border-color);
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  }
+  .account-actions p {
+    flex: 1 1 18rem; margin: 0;
+    font-size: 0.8rem; color: var(--pico-muted-color);
+  }
+  button.danger {
+    background: transparent;
+    border: 1px solid rgba(248, 113, 113, 0.45);
+    color: #f87171;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+    border-radius: 999px;
+    width: auto; margin: 0;
+    line-height: 1.2;
+  }
+  button.danger:hover, button.danger:focus-visible {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: #f87171;
+    color: #fca5a5;
+  }
+
   /* Footer */
   footer.colophon {
     margin-top: 3.5rem;
@@ -371,10 +398,15 @@
       <h2>Your surfs</h2>
       <button class="ghost" id="btnRefresh">Refresh</button>
       <button class="ghost" id="btnUploadAll">Upload all new</button>
-      <button class="ghost" id="btnSignOut">Sign out &amp; disconnect</button>
     </div>
     <div id="surfs" class="surfs"></div>
   </article>
+
+  <!-- Kept apart from the everyday toolbar so it isn't hit by accident -->
+  <section class="account-actions hidden" id="accountActions">
+    <p>Done with Surf Sync? This revokes access on Strava and deletes everything stored in this browser and on the server.</p>
+    <button class="danger" id="btnSignOut">Sign out &amp; disconnect</button>
+  </section>
 
   <footer class="colophon">
     <img class="powered-by" src="/strava/api_logo_pwrdBy_strava_horiz_white.svg" alt="Powered by Strava" onerror="this.replaceWith('Powered by Strava')">
@@ -755,6 +787,7 @@ function render() {
 
   const a = STATE.stravaTokens?.athlete;
   setStep('#step-strava', haveStrava, '#stravaWho', a ? `${a.firstname} ${a.lastname}` : '');
+  $('#accountActions').classList.toggle('hidden', !haveStrava);
 
   if (!haveStrava) {
     $('#step-ripcurl').classList.add('hidden');
