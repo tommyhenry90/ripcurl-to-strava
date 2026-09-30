@@ -240,35 +240,39 @@ function conditionsLine(surf) {
   return bits.map(b => (b[0] || "").toUpperCase() + b.slice(1)).join(" · ");
 }
 
+// Appended to every activity so people who see it on Strava can find the app.
+const ATTRIBUTION = "Synced from my Rip Curl watch by Surf Sync · ripcurlstrava.com";
+
 function surfDescription(surf, session, poolTemp) {
   const kind = activityType(surf);
   // Strava already shows distance / duration / pace / speed in its UI — no
   // need to duplicate that in the description for non-surf activities.
-  if (kind === "run" || kind === "walk" || kind === "ride") return "";
+  if (kind === "run" || kind === "walk" || kind === "ride") return ATTRIBUTION;
 
   const durMin = Math.round((surf.duration_total || 0) / 60);
   const speedMax = surf.speed_max || 0;
 
-  // Surf
+  // Surf — Strava descriptions are plain text, so one stat group per line.
   const waves = surf.wave_count || 0;
-  const waveWord = waves === 1 ? "Wave" : "Waves";
-  const leadBits = [`${durMin} minutes`, `${waves} ${waveWord}`];
+  const waveWord = waves === 1 ? "wave" : "waves";
+  const lead = [`🌊 ${waves} ${waveWord} in ${durMin} min`];
   let context = null;
   if (session) {
-    if (poolTemp) leadBits.push(`${poolTemp}°C water`);
+    if (poolTemp) lead.push(`${poolTemp}°C water`);
   } else {
     context = conditionsLine(surf);
   }
-  const lead = leadBits.join(" · ") + ".";
-  const stats = [];
+  const rides = [];
   const longest = Math.round(surf.longest_wave_by_distance || 0);
-  if (longest) stats.push(`Longest wave ${longest}m`);
-  if (speedMax) stats.push(`Top speed ${speedMax.toFixed(1)} km/h`);
+  if (longest) rides.push(`📏 Longest wave ${longest}m`);
+  if (speedMax) rides.push(`⚡ Top speed ${speedMax.toFixed(1)} km/h`);
+  const dist = [];
   const dw = (surf.distance_waves || 0) / 1000;
-  if (dw) stats.push(`${dw.toFixed(2)}km Riding`);
+  if (dw) dist.push(`🏄 ${dw.toFixed(2)}km riding`);
   const dp = (surf.distance_paddles || 0) / 1000;
-  if (dp) stats.push(`${dp.toFixed(2)}km Paddling`);
-  return [lead, context, stats.length ? stats.join(" · ") + "." : null].filter(Boolean).join("\n");
+  if (dp) dist.push(`🚣 ${dp.toFixed(2)}km paddling`);
+  const lines = [lead.join(" · "), context, rides.join(" · "), dist.join(" · ")].filter(Boolean);
+  return lines.join("\n") + "\n\n" + ATTRIBUTION;
 }
 
 // ---------- gpx ----------
