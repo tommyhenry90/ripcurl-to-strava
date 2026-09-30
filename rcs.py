@@ -304,43 +304,40 @@ def surf_title(surf: dict) -> str:
 _WIND_WORDS = ["calm", "light", "moderate", "strong", "very strong", "gale"]
 
 
-def conditions_line(surf: dict) -> str | None:
-    """Format ocean conditions from the Rip Curl API into a single line, or None if sparse."""
-    bits = []
+def conditions_lines(surf: dict) -> list[str]:
+    """Ocean conditions from the Rip Curl API, one per line so nothing wraps on a phone."""
+    lines = []
     swell = surf.get("swell_size") or surf.get("swell_max")
     period = surf.get("swell_period")
     swell_dir = surf.get("swell_direction")
     human = (surf.get("human_relation") or "").strip()
     if human:
-        bits.append(human)
+        lines.append(f"🌊 {human[:1].upper()}{human[1:]}")
     elif swell:
         s = f"{swell:.1f}m"
         if swell_dir: s += f" {swell_dir}"
         if period: s += f" @ {period}s"
-        bits.append(s + " swell")
+        lines.append(f"🌊 {s} swell")
 
     ws = surf.get("wind_strength")
     wd = surf.get("wind_direction")
     if ws and wd:
         word = _WIND_WORDS[min(int(ws), len(_WIND_WORDS) - 1)]
-        bits.append(f"{word} {wd} wind")
+        lines.append(f"💨 {word.capitalize()} {wd} wind")
 
     tide_level = (surf.get("tide_level") or "").lower()
     tide_dir = (surf.get("tide_direction") or "").lower()
     if tide_level and tide_dir:
-        bits.append(f"{tide_level} tide {tide_dir}")
+        lines.append(f"🌗 {tide_level.capitalize()} tide {tide_dir}")
 
-    wt = surf.get("water_temp")
-    if wt:
-        bits.append(f"{wt}°C water")
-
-    if len(bits) < 2:
-        return None
-    return " · ".join(b[0].upper() + b[1:] if b and b[0].isalpha() else b for b in bits)
+    if surf.get("water_temp"):
+        lines.append(f"🌡️ {surf['water_temp']}°C water")
+    return lines
 
 
 # Appended to every activity so people who see it on Strava can find the app.
-ATTRIBUTION = "Synced from my Rip Curl watch by Surf Sync · ripcurlstrava.com"
+# Kept short enough to sit on one line on a phone, so the link isn't truncated.
+ATTRIBUTION = "Synced by Surf Sync · ripcurlstrava.com"
 
 
 def surf_description(surf: dict) -> str:
@@ -350,38 +347,36 @@ def surf_description(surf: dict) -> str:
     if kind in ("run", "walk", "ride"):
         return ATTRIBUTION
 
+    # Strava descriptions are plain text and phone screens fit ~35 characters,
+    # so: one item per line, one emoji at the start of each.
     dur_min = round((surf.get("duration_total") or 0) / 60)
-    speed_max = surf.get("speed_max") or 0
     waves = surf.get("wave_count", 0)
-    wave_word = "wave" if waves == 1 else "waves"
+    lines = [f"🏄 {waves} {'wave' if waves == 1 else 'waves'} in {dur_min} min"]
+    longest = int(surf.get("longest_wave_by_distance") or 0)
+    if longest:
+        lines.append(f"📏 Longest wave {longest}m")
+    speed_max = surf.get("speed_max") or 0
+    if speed_max:
+        lines.append(f"⚡ Top speed {speed_max:.1f} km/h")
+    dist = []
+    dw = (surf.get("distance_waves") or 0) / 1000
+    if dw:
+        dist.append(f"{dw:.2f}km riding")
+    dp = (surf.get("distance_paddles") or 0) / 1000
+    if dp:
+        dist.append(f"{dp:.2f}km paddling")
+    if dist:
+        lines.append("🛶 " + " · ".join(dist))
     program = urbnsurf_session_name(surf)
-    # Strava descriptions are plain text, so one stat group per line.
-    lead = [f"🌊 {waves} {wave_word} in {dur_min} min"]
     if program:
         loc = (surf.get("location") or "").upper()
         park = "sydney" if "SYDNEY" in loc else "melbourne" if "MELBOURNE" in loc else None
         temp = urbnsurf_pool_temp(park) if park else None
         if temp:
-            lead.append(f"{temp}°C water")
-        context = None
+            lines.append(f"🌡️ {temp}°C water")
     else:
-        context = conditions_line(surf)
-
-    rides = []
-    longest = int(surf.get("longest_wave_by_distance") or 0)
-    if longest:
-        rides.append(f"📏 Longest wave {longest}m")
-    if speed_max:
-        rides.append(f"⚡ Top speed {speed_max:.1f} km/h")
-    dist = []
-    dw = (surf.get("distance_waves") or 0) / 1000
-    if dw:
-        dist.append(f"🏄 {dw:.2f}km riding")
-    dp = (surf.get("distance_paddles") or 0) / 1000
-    if dp:
-        dist.append(f"🚣 {dp:.2f}km paddling")
-    lines = [" · ".join(lead), context, " · ".join(rides), " · ".join(dist)]
-    return "\n".join(x for x in lines if x) + "\n\n" + ATTRIBUTION
+        lines.extend(conditions_lines(surf))
+    return "\n".join(lines) + "\n\n" + ATTRIBUTION
 
 
 # ---------- gpx ----------
