@@ -339,45 +339,49 @@ def conditions_line(surf: dict) -> str | None:
     return " · ".join(b[0].upper() + b[1:] if b and b[0].isalpha() else b for b in bits)
 
 
+# Appended to every activity so people who see it on Strava can find the app.
+ATTRIBUTION = "Synced from my Rip Curl watch by Surf Sync · ripcurlstrava.com"
+
+
 def surf_description(surf: dict) -> str:
     kind = activity_type(surf)
     # Strava already renders distance/duration/pace/speed for non-surf activities —
     # no need to duplicate that in the description.
     if kind in ("run", "walk", "ride"):
-        return ""
+        return ATTRIBUTION
 
     dur_min = round((surf.get("duration_total") or 0) / 60)
     speed_max = surf.get("speed_max") or 0
     waves = surf.get("wave_count", 0)
-    wave_word = "Wave" if waves == 1 else "Waves"
+    wave_word = "wave" if waves == 1 else "waves"
     program = urbnsurf_session_name(surf)
-    lead_bits = [f"{dur_min} minutes", f"{waves} {wave_word}"]
+    # Strava descriptions are plain text, so one stat group per line.
+    lead = [f"🌊 {waves} {wave_word} in {dur_min} min"]
     if program:
         loc = (surf.get("location") or "").upper()
         park = "sydney" if "SYDNEY" in loc else "melbourne" if "MELBOURNE" in loc else None
         temp = urbnsurf_pool_temp(park) if park else None
         if temp:
-            lead_bits.append(f"{temp}°C water")
+            lead.append(f"{temp}°C water")
         context = None
     else:
         context = conditions_line(surf)
-    lead = " · ".join(lead_bits) + "."
 
-    bits = []
+    rides = []
     longest = int(surf.get("longest_wave_by_distance") or 0)
     if longest:
-        bits.append(f"Longest wave {longest}m")
+        rides.append(f"📏 Longest wave {longest}m")
     if speed_max:
-        bits.append(f"Top speed {speed_max:.1f} km/h")
+        rides.append(f"⚡ Top speed {speed_max:.1f} km/h")
+    dist = []
     dw = (surf.get("distance_waves") or 0) / 1000
     if dw:
-        bits.append(f"{dw:.2f}km Riding")
+        dist.append(f"🏄 {dw:.2f}km riding")
     dp = (surf.get("distance_paddles") or 0) / 1000
     if dp:
-        bits.append(f"{dp:.2f}km Paddling")
-    stats = " · ".join(bits) + "." if bits else ""
-
-    return "\n".join(x for x in (lead, context, stats) if x)
+        dist.append(f"🚣 {dp:.2f}km paddling")
+    lines = [" · ".join(lead), context, " · ".join(rides), " · ".join(dist)]
+    return "\n".join(x for x in lines if x) + "\n\n" + ATTRIBUTION
 
 
 # ---------- gpx ----------
