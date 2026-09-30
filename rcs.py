@@ -304,34 +304,43 @@ def surf_title(surf: dict) -> str:
 _WIND_WORDS = ["calm", "light", "moderate", "strong", "very strong", "gale"]
 
 
+def _cap(s: str) -> str:
+    return s[:1].upper() + s[1:]
+
+
 def conditions_lines(surf: dict) -> list[str]:
-    """Ocean conditions from the Rip Curl API, one per line so nothing wraps on a phone."""
-    lines = []
+    """Ocean conditions as at most two lines: size + water temp, then wind + tide.
+    Each stays under ~40 characters so it doesn't wrap on a phone."""
     swell = surf.get("swell_size") or surf.get("swell_max")
     period = surf.get("swell_period")
     swell_dir = surf.get("swell_direction")
     human = (surf.get("human_relation") or "").strip()
+    sea = []
     if human:
-        lines.append(f"🌊 {human[:1].upper()}{human[1:]}")
+        sea.append(human)
     elif swell:
         s = f"{swell:.1f}m"
         if swell_dir: s += f" {swell_dir}"
         if period: s += f" @ {period}s"
-        lines.append(f"🌊 {s} swell")
+        sea.append(s)
+    if surf.get("water_temp"):
+        sea.append(f"{surf['water_temp']}°C water")
 
+    air = []
     ws = surf.get("wind_strength")
     wd = surf.get("wind_direction")
     if ws and wd:
-        word = _WIND_WORDS[min(int(ws), len(_WIND_WORDS) - 1)]
-        lines.append(f"💨 {word.capitalize()} {wd} wind")
-
+        air.append(f"{_WIND_WORDS[min(int(ws), len(_WIND_WORDS) - 1)]} {wd}")
     tide_level = (surf.get("tide_level") or "").lower()
     tide_dir = (surf.get("tide_direction") or "").lower()
     if tide_level and tide_dir:
-        lines.append(f"🌗 {tide_level.capitalize()} tide {tide_dir}")
+        air.append(f"{tide_level} tide {tide_dir}")
 
-    if surf.get("water_temp"):
-        lines.append(f"🌡️ {surf['water_temp']}°C water")
+    lines = []
+    if sea:
+        lines.append("🌊 " + _cap(" · ".join(sea)))
+    if air:
+        lines.append("💨 " + _cap(" · ".join(air)))
     return lines
 
 
@@ -347,17 +356,21 @@ def surf_description(surf: dict) -> str:
     if kind in ("run", "walk", "ride"):
         return ATTRIBUTION
 
-    # Strava descriptions are plain text and phone screens fit ~35 characters,
-    # so: one item per line, one emoji at the start of each.
+    # Strava's mobile view collapses descriptions after ~7 lines, and the
+    # attribution is last, so the whole thing must fit in 7 lines including the
+    # blank one. Plain text only; one emoji at the start of each line.
     dur_min = round((surf.get("duration_total") or 0) / 60)
     waves = surf.get("wave_count", 0)
     lines = [f"🏄 {waves} {'wave' if waves == 1 else 'waves'} in {dur_min} min"]
+    ride = []
     longest = int(surf.get("longest_wave_by_distance") or 0)
     if longest:
-        lines.append(f"📏 Longest wave {longest}m")
+        ride.append(f"longest wave {longest}m")
     speed_max = surf.get("speed_max") or 0
     if speed_max:
-        lines.append(f"⚡ Top speed {speed_max:.1f} km/h")
+        ride.append(f"top speed {round(speed_max)} km/h")
+    if ride:
+        lines.append("📏 " + _cap(" · ".join(ride)))
     dist = []
     dw = (surf.get("distance_waves") or 0) / 1000
     if dw:
@@ -372,12 +385,11 @@ def surf_description(surf: dict) -> str:
         loc = (surf.get("location") or "").upper()
         park = "sydney" if "SYDNEY" in loc else "melbourne" if "MELBOURNE" in loc else None
         temp = urbnsurf_pool_temp(park) if park else None
-        conditions = [f"🌡️ {temp}°C water"] if temp else []
+        if temp:
+            lines.append(f"🌡️ {temp}°C water")
     else:
-        conditions = conditions_lines(surf)
-    # Blank line between the stats, the conditions and the attribution.
-    groups = [g for g in (lines, conditions, [ATTRIBUTION]) if g]
-    return "\n\n".join("\n".join(g) for g in groups)
+        lines.extend(conditions_lines(surf))
+    return "\n".join(lines) + "\n\n" + ATTRIBUTION
 
 
 # ---------- gpx ----------
