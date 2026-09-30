@@ -42,9 +42,12 @@ Download Strava's official assets from <https://developers.strava.com/guidelines
 
 If the files in the download are named differently, rename them to match, or update the `src` attributes in `web/public/index.html`. Until the files are in place, the page shows plain-text fallbacks.
 
-## Strava athlete-capacity review checklist
+## Strava athlete capacity
 
-New Strava apps are limited to 1 connected athlete. To raise the limit, submit the app for review through the Strava Developer Program. The code side is done in this repo:
+New Strava apps are limited to 1 connected athlete ("single player mode"). Raising it is a two-stage process:
+
+1. **Up to 10 athletes, self-serve.** Since July 2026 the account owning the app needs a paid Strava subscription. Once subscribed, open <https://www.strava.com/settings/api>, reactivate the app if it shows as inactive, and click **Upgrade**. No review needed.
+2. **Beyond 10, by review.** Submit the Developer Program form linked from the same page. Strava checks the app against its brand guidelines and API agreement. The code side of that is done in this repo:
 
 - [x] Official "Connect with Strava" button that links to `https://www.strava.com/oauth/authorize`
 - [x] "Powered by Strava" logo and a statement that the app isn't affiliated with Strava
@@ -56,10 +59,9 @@ New Strava apps are limited to 1 connected athlete. To raise the limit, submit t
 - [x] Only the athlete id is stored server-side, with no cached Strava profile or activity data
 - [x] Each user's data is shown only to that user
 
-These steps are manual:
+Manual steps for the production app (done for ripcurlstrava.com, listed here for a fresh setup):
 
-- [ ] Add the two brand-asset files above
-- [ ] Set `STRAVA_WEBHOOK_VERIFY_TOKEN`, deploy, and create the webhook subscription
-- [ ] On <https://www.strava.com/settings/api>, rename the app so the name doesn't include "Strava" (for example "Surf Sync"), set the website to `https://ripcurlstrava.com`, and upload an app icon
-- [ ] Submit the Developer Program form linked from that page. Include screenshots of the connect flow and an uploaded activity, plus the privacy policy URL
-- [ ] If there's no reply within about 10 business days, email developers@strava.com
+- [x] Add the two brand-asset files above
+- [x] Set `STRAVA_WEBHOOK_VERIFY_TOKEN`, deploy, and create the webhook subscription. Note: creating the subscription fails with `"code":"Inactive"` until the app owner has a Strava subscription and the app is reactivated
+- [x] On <https://www.strava.com/settings/api>, name the app without "Strava" in it (it's "Surf Sync"), set the website to `https://ripcurlstrava.com/`, and upload an app icon
+- [ ] When approaching 10 athletes, submit the Developer Program form linked from that page. Include screenshots of the connect flow and an uploaded activity, plus the privacy policy URL (`https://ripcurlstrava.com/privacy.html`). If there's no reply within about 10 business days, email developers@strava.com
