@@ -266,12 +266,12 @@ function surfDescription(surf, session, poolTemp) {
   const dp = (surf.distance_paddles || 0) / 1000;
   if (dp) dist.push(`${dp.toFixed(2)}km paddling`);
   if (dist.length) lines.push(`🛶 ${dist.join(" · ")}`);
-  if (session) {
-    if (poolTemp) lines.push(`🌡️ ${poolTemp}°C water`);
-  } else {
-    lines.push(...conditionsLines(surf));
-  }
-  return lines.join("\n") + "\n\n" + ATTRIBUTION;
+  // Blank line between the stats, the conditions and the attribution.
+  const conditions = session ? (poolTemp ? [`🌡️ ${poolTemp}°C water`] : []) : conditionsLines(surf);
+  return [lines, conditions, [ATTRIBUTION]]
+    .filter(g => g.length)
+    .map(g => g.join("\n"))
+    .join("\n\n");
 }
 
 // ---------- gpx ----------

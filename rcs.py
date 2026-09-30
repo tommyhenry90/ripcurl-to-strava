@@ -372,11 +372,12 @@ def surf_description(surf: dict) -> str:
         loc = (surf.get("location") or "").upper()
         park = "sydney" if "SYDNEY" in loc else "melbourne" if "MELBOURNE" in loc else None
         temp = urbnsurf_pool_temp(park) if park else None
-        if temp:
-            lines.append(f"🌡️ {temp}°C water")
+        conditions = [f"🌡️ {temp}°C water"] if temp else []
     else:
-        lines.extend(conditions_lines(surf))
-    return "\n".join(lines) + "\n\n" + ATTRIBUTION
+        conditions = conditions_lines(surf)
+    # Blank line between the stats, the conditions and the attribution.
+    groups = [g for g in (lines, conditions, [ATTRIBUTION]) if g]
+    return "\n\n".join("\n".join(g) for g in groups)
 
 
 # ---------- gpx ----------
