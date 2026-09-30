@@ -215,33 +215,35 @@ function surfTitle(surf, session) {
   return session ? `${spot} - ${session}` : spot;
 }
 
-function conditionsLine(surf) {
-  const bits = [];
+function conditionsLines(surf) {
+  // One condition per line so nothing wraps mid-phrase on a phone.
+  const lines = [];
   const swell = surf.swell_size || surf.swell_max;
   const period = surf.swell_period;
   const swellDir = surf.swell_direction;
   const human = (surf.human_relation || "").trim();
-  if (human) bits.push(human);
+  if (human) lines.push(`🌊 ${cap(human)}`);
   else if (swell) {
     let s = swell.toFixed(1) + "m";
     if (swellDir) s += " " + swellDir;
     if (period) s += " @ " + period + "s";
-    bits.push(s + " swell");
+    lines.push(`🌊 ${s} swell`);
   }
   if (surf.wind_strength && surf.wind_direction) {
     const w = WIND_WORDS[Math.min(+surf.wind_strength, WIND_WORDS.length - 1)];
-    bits.push(`${w} ${surf.wind_direction} wind`);
+    lines.push(`💨 ${cap(w)} ${surf.wind_direction} wind`);
   }
   if (surf.tide_level && surf.tide_direction) {
-    bits.push(`${surf.tide_level.toLowerCase()} tide ${surf.tide_direction.toLowerCase()}`);
+    lines.push(`🌗 ${cap(surf.tide_level.toLowerCase())} tide ${surf.tide_direction.toLowerCase()}`);
   }
-  if (surf.water_temp) bits.push(`${surf.water_temp}°C water`);
-  if (bits.length < 2) return null;
-  return bits.map(b => (b[0] || "").toUpperCase() + b.slice(1)).join(" · ");
+  if (surf.water_temp) lines.push(`🌡️ ${surf.water_temp}°C water`);
+  return lines;
 }
+function cap(s) { return (s[0] || "").toUpperCase() + s.slice(1); }
 
 // Appended to every activity so people who see it on Strava can find the app.
-const ATTRIBUTION = "Synced from my Rip Curl watch by Surf Sync · ripcurlstrava.com";
+// Kept short enough to sit on one line on a phone, so the link isn't truncated.
+const ATTRIBUTION = "Synced by Surf Sync · ripcurlstrava.com";
 
 function surfDescription(surf, session, poolTemp) {
   const kind = activityType(surf);
@@ -249,29 +251,26 @@ function surfDescription(surf, session, poolTemp) {
   // need to duplicate that in the description for non-surf activities.
   if (kind === "run" || kind === "walk" || kind === "ride") return ATTRIBUTION;
 
+  // Strava descriptions are plain text and phone screens fit ~35 characters,
+  // so: one item per line, one emoji at the start of each.
   const durMin = Math.round((surf.duration_total || 0) / 60);
-  const speedMax = surf.speed_max || 0;
-
-  // Surf — Strava descriptions are plain text, so one stat group per line.
   const waves = surf.wave_count || 0;
-  const waveWord = waves === 1 ? "wave" : "waves";
-  const lead = [`🌊 ${waves} ${waveWord} in ${durMin} min`];
-  let context = null;
-  if (session) {
-    if (poolTemp) lead.push(`${poolTemp}°C water`);
-  } else {
-    context = conditionsLine(surf);
-  }
-  const rides = [];
+  const lines = [`🏄 ${waves} ${waves === 1 ? "wave" : "waves"} in ${durMin} min`];
   const longest = Math.round(surf.longest_wave_by_distance || 0);
-  if (longest) rides.push(`📏 Longest wave ${longest}m`);
-  if (speedMax) rides.push(`⚡ Top speed ${speedMax.toFixed(1)} km/h`);
+  if (longest) lines.push(`📏 Longest wave ${longest}m`);
+  const speedMax = surf.speed_max || 0;
+  if (speedMax) lines.push(`⚡ Top speed ${speedMax.toFixed(1)} km/h`);
   const dist = [];
   const dw = (surf.distance_waves || 0) / 1000;
-  if (dw) dist.push(`🏄 ${dw.toFixed(2)}km riding`);
+  if (dw) dist.push(`${dw.toFixed(2)}km riding`);
   const dp = (surf.distance_paddles || 0) / 1000;
-  if (dp) dist.push(`🚣 ${dp.toFixed(2)}km paddling`);
-  const lines = [lead.join(" · "), context, rides.join(" · "), dist.join(" · ")].filter(Boolean);
+  if (dp) dist.push(`${dp.toFixed(2)}km paddling`);
+  if (dist.length) lines.push(`🛶 ${dist.join(" · ")}`);
+  if (session) {
+    if (poolTemp) lines.push(`🌡️ ${poolTemp}°C water`);
+  } else {
+    lines.push(...conditionsLines(surf));
+  }
   return lines.join("\n") + "\n\n" + ATTRIBUTION;
 }
 
