@@ -216,27 +216,31 @@ function surfTitle(surf, session) {
 }
 
 function conditionsLines(surf) {
-  // One condition per line so nothing wraps mid-phrase on a phone.
-  const lines = [];
+  // Two lines at most: size + water temp, then wind + tide. Each stays under
+  // ~40 characters so it doesn't wrap on a phone.
   const swell = surf.swell_size || surf.swell_max;
   const period = surf.swell_period;
   const swellDir = surf.swell_direction;
   const human = (surf.human_relation || "").trim();
-  if (human) lines.push(`🌊 ${cap(human)}`);
+  const sea = [];
+  if (human) sea.push(human);
   else if (swell) {
     let s = swell.toFixed(1) + "m";
     if (swellDir) s += " " + swellDir;
     if (period) s += " @ " + period + "s";
-    lines.push(`🌊 ${s} swell`);
+    sea.push(s);
   }
+  if (surf.water_temp) sea.push(`${surf.water_temp}°C water`);
+  const air = [];
   if (surf.wind_strength && surf.wind_direction) {
-    const w = WIND_WORDS[Math.min(+surf.wind_strength, WIND_WORDS.length - 1)];
-    lines.push(`💨 ${cap(w)} ${surf.wind_direction} wind`);
+    air.push(`${WIND_WORDS[Math.min(+surf.wind_strength, WIND_WORDS.length - 1)]} ${surf.wind_direction}`);
   }
   if (surf.tide_level && surf.tide_direction) {
-    lines.push(`🌗 ${cap(surf.tide_level.toLowerCase())} tide ${surf.tide_direction.toLowerCase()}`);
+    air.push(`${surf.tide_level.toLowerCase()} tide ${surf.tide_direction.toLowerCase()}`);
   }
-  if (surf.water_temp) lines.push(`🌡️ ${surf.water_temp}°C water`);
+  const lines = [];
+  if (sea.length) lines.push(`🌊 ${cap(sea.join(" · "))}`);
+  if (air.length) lines.push(`💨 ${cap(air.join(" · "))}`);
   return lines;
 }
 function cap(s) { return (s[0] || "").toUpperCase() + s.slice(1); }
@@ -251,27 +255,30 @@ function surfDescription(surf, session, poolTemp) {
   // need to duplicate that in the description for non-surf activities.
   if (kind === "run" || kind === "walk" || kind === "ride") return ATTRIBUTION;
 
-  // Strava descriptions are plain text and phone screens fit ~35 characters,
-  // so: one item per line, one emoji at the start of each.
+  // Strava's mobile view collapses descriptions after ~7 lines, and the
+  // attribution is last, so the whole thing must fit in 7 lines including the
+  // blank one. Plain text only; one emoji at the start of each line.
   const durMin = Math.round((surf.duration_total || 0) / 60);
   const waves = surf.wave_count || 0;
   const lines = [`🏄 ${waves} ${waves === 1 ? "wave" : "waves"} in ${durMin} min`];
+  const ride = [];
   const longest = Math.round(surf.longest_wave_by_distance || 0);
-  if (longest) lines.push(`📏 Longest wave ${longest}m`);
+  if (longest) ride.push(`longest wave ${longest}m`);
   const speedMax = surf.speed_max || 0;
-  if (speedMax) lines.push(`⚡ Top speed ${speedMax.toFixed(1)} km/h`);
+  if (speedMax) ride.push(`top speed ${Math.round(speedMax)} km/h`);
+  if (ride.length) lines.push(`📏 ${cap(ride.join(" · "))}`);
   const dist = [];
   const dw = (surf.distance_waves || 0) / 1000;
   if (dw) dist.push(`${dw.toFixed(2)}km riding`);
   const dp = (surf.distance_paddles || 0) / 1000;
   if (dp) dist.push(`${dp.toFixed(2)}km paddling`);
   if (dist.length) lines.push(`🛶 ${dist.join(" · ")}`);
-  // Blank line between the stats, the conditions and the attribution.
-  const conditions = session ? (poolTemp ? [`🌡️ ${poolTemp}°C water`] : []) : conditionsLines(surf);
-  return [lines, conditions, [ATTRIBUTION]]
-    .filter(g => g.length)
-    .map(g => g.join("\n"))
-    .join("\n\n");
+  if (session) {
+    if (poolTemp) lines.push(`🌡️ ${poolTemp}°C water`);
+  } else {
+    lines.push(...conditionsLines(surf));
+  }
+  return lines.join("\n") + "\n\n" + ATTRIBUTION;
 }
 
 // ---------- gpx ----------
